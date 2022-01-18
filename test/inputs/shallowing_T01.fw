@@ -1,0 +1,2 @@
+let _ [a] = (fun [b] (x : b) [a] [a] => ()) [all a. a -> a]
+    

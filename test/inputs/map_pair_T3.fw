@@ -1,0 +1,14 @@
+(** distrib_pair *)
+
+let map_pair [F :: Type -> Type] [G :: Type -> Type] [A] [B]
+    (f : all C. F C -> G C) (x : F A) (y : F B) = f [A] x, f [B] y
+
+let map_pair1 : all A. all B. (A -> B) -> A -> A -> B * B =
+      fun [A] [B] (f : A -> B) => map_pair [lam C. A] [lam C. B] [A] [B] (fun [C] => f)
+
+let map_pair2 : all A. all B. (all C. C -> C) -> A -> B -> A * B =
+      map_pair [lam C. C] [lam C. C] 
+
+
+ 
+

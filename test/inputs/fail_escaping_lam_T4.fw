@@ -1,0 +1,10 @@
+#include "prelude.fw"
+#option "fail"
+
+(** Here a do escape becaut [injective] is injective *)
+
+type injective a = a  
+
+let x = <int, (succ, 1) as exi a. (a -> injective a) * a>
+let y = let <a, fv> = x in fv.1 fv.2
+

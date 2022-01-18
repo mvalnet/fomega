@@ -1,0 +1,13 @@
+#include "reduce_T4.fw"
+
+(** expensive computation  if not done lazily. 
+
+ - Types are also rather large but the example is more oriented toward 
+   the number of reducetions that the size of types 
+
+ - You may the values if needed. See reduce.fw 
+
+*)
+let check (x : times nat6 (add nat1 nat2) s z)
+  : add nat6 (times nat6 nat2) s z = x
+

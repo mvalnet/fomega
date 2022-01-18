@@ -1,0 +1,40 @@
+#include "prim_sum_T3.fw" 
+#include "rectypes_T3.fw"
+
+(** Fix point *)
+let rec fix [A] (f : A -> A) (x : A) : A = f (fix [A] f x)
+
+type list_ A = lam list. sum unit (A * list)
+type list A = fix (list_ A)
+
+let nil [A] : list A = fold [list_ A] (Left [unit] [A * list A] ())
+let cons [A] (h : A) (t: list A) : list A =
+  fold [list_ A] (Right [unit] [A * list A] (h, t)) 
+let case_list [A] [B] (l : list A) 
+    (nil : B) (cons : A * list A -> B) : B =
+  case_AB [unit] [A *list A] [B] (unfold [list_ A] l)
+    (fun (_: unit) => nil) cons
+
+let map [A] [B] =
+  let gen (map : (A -> B) -> list A -> list B)
+      (f : A -> B) (x : list A) : list B = 
+    case_list [A] [list B] x
+      (nil[B])
+      (fun (xt : A * list A) => cons [B] (f xt.1) (map f xt.2)) in
+  fix [(A -> B) -> list A -> list B] gen
+
+let map [A] [B] =
+  let rec (map : (A -> B) -> list A -> list B)
+      (f : A -> B) (x : list A) : list B = 
+    case_list [A] [list B] x
+      (nil[B])
+      (fun (xt : A * list A) => cons [B] (f xt.1) (map f xt.2)) in
+  map
+
+let map [A] [B] =
+  let rec map (f : A -> B) (x : list A) : list B = 
+    case_list [A] [list B] x
+      (nil[B])
+      (fun (xt : A * list A) => cons [B] (f xt.1) (map f xt.2)) in
+  map
+  

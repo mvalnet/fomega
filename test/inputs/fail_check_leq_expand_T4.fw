@@ -1,0 +1,6 @@
+(** This example should fail, but after expanding the definition *)
+
+#option "fail"
+type foo = int
+let f (x : foo) : unit = x
+

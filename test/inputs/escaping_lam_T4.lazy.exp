@@ -1,0 +1,5 @@
+type ph_int :: Type -> Type = lam a. int
+val x : exi a. (a -> ph_int int) * a
+val y : ph_int int
+val x : exi a. (a -> ph_int a) * a
+val y : int

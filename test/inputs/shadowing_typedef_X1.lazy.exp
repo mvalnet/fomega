@@ -1,0 +1,17 @@
+type foo1 = int
+type foo1999 = int
+type foo19991 = int
+type foo = int
+val x : foo
+type foo2 = string
+val y : foo2
+type foo3 = int
+type foo4 = foo3
+val z : foo4
+type foo5 = string
+val y : foo5
+type foo6 = int
+val z : foo6
+val f :
+  all bar1. bar1 ->
+    (all bar1999. all bar19991. all bar. all bar2. bar2 -> int)

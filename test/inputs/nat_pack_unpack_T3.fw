@@ -1,0 +1,46 @@
+(** This plays with existential types, using both a church version and a
+    primitive implementation of nats. We hide the implementation type 
+    using existential types.  We write a program using any implementation 
+    of nats and test it with both implementations. 
+
+    This checks System F with existentials and type definitions, but no
+    higher-order types. 
+ *)
+
+(** Church nats *)
+
+type Nat = all B. B -> (B -> B) -> B
+let nat_church =
+  { zero = fun [A] (z: A) (s : A -> A) => z;
+    succ = fun (n : Nat) => fun [A] (z:A) (s : A -> A) => s (n [A] z s);
+      fold = fun (n : Nat) => n;
+  }
+type abs_nat = exi t. { zero : t; succ : t -> t; fold : t -> Nat; } 
+let abs_nat_church = < Nat, nat_church as abs_nat >
+
+let prog (nat : abs_nat) =
+  let <nat, nat> = abs_nat_church in
+  let n2 = nat.succ (nat.succ nat.zero) in
+  ()
+
+let prog_with_nat_church = prog abs_nat_church
+
+(* Prim nats *)
+(* To avoid prelude *)
+let if     = magic [all a. bool -> a -> a -> a]
+let succ   = magic [ int -> int]
+let pred   = magic [ int -> int]
+let eq_int = magic [ int -> int -> bool]
+
+let nat_prim =
+    let zero = 0 in
+    let succ = succ in
+    let rec fold : int -> (all A. A -> (A -> A) -> A) =
+      fun (n : int)  [A] (z:A) (s : A -> A) =>
+        if [A] (eq_int n 0) (z:A) (s (fold (pred n) [A] z s) : A)
+    in { zero; succ; fold; }
+
+let abs_nat_prim = < int, nat_prim as abs_nat >
+
+let prog_with_nat_prim = prog abs_nat_prim
+                            

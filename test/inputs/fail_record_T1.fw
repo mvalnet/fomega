@@ -1,0 +1,3 @@
+#option "fail"
+
+let ab : { a : int }  = { a = 1; b = () }

@@ -1,0 +1,28 @@
+type nat0 (S :: Type -> Type) Z = Z
+type nat1 (S :: Type -> Type) Z = S Z
+type add
+      (P :: (Type -> Type) -> Type -> Type)
+      (Q :: (Type -> Type) -> Type -> Type)
+      (S :: Type -> Type) Z = P S (Q S Z)
+type times
+      (P :: (Type -> Type) -> Type -> Type)
+      (Q :: (Type -> Type) -> Type -> Type)
+      (S :: Type -> Type) Z = P (Q S) Z
+
+type square (P :: (Type -> Type) -> Type -> Type) = times P P
+
+type nat2 = add nat1 nat1
+type nat4 = square nat2
+
+type z = int
+type s a = a * a
+
+let check (x : times nat2 nat4 s z) : times nat4 nat2 s z = x
+
+(* type nat6 = times nat4 nat2 *)
+(* type nat8 = square nat4 *)
+(* type nat16 = square nat8  *)
+(* type nat2_5 = square nat16 *)
+
+(* let check (x : nat2_8 s z) : nat2_8 s z = x *)
+(* let check (x : nat2_16 s z) : nat2_16 s z = x *)

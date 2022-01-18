@@ -1,0 +1,5 @@
+val map_pair :
+  all F :: Type -> Type. all G :: Type -> Type. all A. all B.
+    (all C. F C -> G C) -> F A -> F B -> G A * G B
+val map_pair1 : all A. all B. (A -> B) -> A -> A -> B * B
+val map_pair2 : all A. all B. (all C. C -> C) -> A -> B -> A * B

@@ -1,0 +1,22 @@
+(ocamllex (modules lexer))
+
+(menhir (modules parser)
+  (flags -lg 1 -la 1 --explain)
+)
+
+(executable
+  (name main)
+  (flags (:standard -w A-4-44-32-42 -g))
+  (libraries fomega)
+  (modules  main)
+)
+
+
+(library
+  (name fomega)
+  (flags (:standard -w A-4-44-32-42 -g))
+  (modules util locations syntax  error lexer parser print type typing)
+  (libraries pprint)
+  (wrapped false)
+  )
+

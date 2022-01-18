@@ -1,0 +1,20 @@
+let true  = magic [ bool]
+let false = magic [ bool]
+
+let not    = magic [ bool -> bool]
+let land   = magic [bool -> bool -> bool]
+let lor    = magic [bool -> bool -> bool]
+
+let if     = magic [all a. bool -> a -> a -> a]
+
+let eq_int = magic [ int -> int -> bool]
+let lt_int = magic [ int -> int -> bool]
+let gt_int = magic [ int -> int -> bool]
+let succ   = magic [ int -> int]
+let pred   = magic [ int -> int]
+let plus   = magic [int -> int -> int]
+let minus  = magic [int -> int -> int]
+let times  = magic [int -> int -> int]
+let div    = magic [int -> int -> int]
+
+    

@@ -1,0 +1,6 @@
+File "./fail_record_access_T1.fw", line 3, characters 26-27:
+
+Typing error: mistmatch between: 
+Actual type:     {a : int}
+Expected type shape:   record with label b
+Expected failure is ok!

@@ -1,0 +1,12 @@
+let x = 1
+let y = x
+let i1 = 1
+let b1 = "true" 
+type int    
+type string = int
+let x = i1
+let b2 = "true"
+let b21 = b1
+let f (x : string) = x    
+let g (x : int) = x    
+    

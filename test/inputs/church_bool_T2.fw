@@ -1,0 +1,9 @@
+(** Church bool, with type definitions and packing *)
+type Bool = all A. A -> A -> A
+let tt [A] (x:A) (y:A) = x
+let ff [A] (x:A) (y:A) = y
+let if_ [A] (b : Bool) (x : A) (y : A) = b [A] x y
+let bool_church = { tt; ff; if_}
+type boolean =
+    exi bool. { tt : bool; ff : bool; if_ : all A. bool -> A -> A -> A; }
+let boolean = < Bool, bool_church as boolean >

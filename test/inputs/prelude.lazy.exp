@@ -1,0 +1,15 @@
+val true : bool
+val false : bool
+val not : bool -> bool
+val land : bool -> bool -> bool
+val lor : bool -> bool -> bool
+val if : all a. bool -> a -> a -> a
+val eq_int : int -> int -> bool
+val lt_int : int -> int -> bool
+val gt_int : int -> int -> bool
+val succ : int -> int
+val pred : int -> int
+val plus : int -> int -> int
+val minus : int -> int -> int
+val times : int -> int -> int
+val div : int -> int -> int

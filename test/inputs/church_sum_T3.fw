@@ -1,0 +1,64 @@
+#include "prelude.fw"
+      
+(** Concrete encoding *)
+type sum A B = all C. (A -> C) -> (B -> C) -> C
+let Left [A] [B] (x : A) : sum A B =
+  fun [C] (left : A -> C) (right : B -> C) => left x 
+let Right [A] [B] (x : B) : sum A B =
+  fun [C] (left : A -> C) (right : B -> C) => right x
+let case [A] [B] (x : sum A B) 
+    [C] (left : A -> C) (right : B -> C)
+    = x [C] left right
+
+let sum = { Left; Right; case }
+
+type Sum = exi (sum :: Type -> Type -> Type).
+      { Left : all A. all B. A -> sum A B;
+        Right : all A. all B. B -> sum A B;
+          case :
+            all A. all B. sum A B -> (all C. (A -> C) -> (B -> C) -> C) }
+
+(** Packing to make iit opaque *)
+let Sum = < sum, sum as Sum >
+
+(** Opening the encoding, to make it available in the reset of the 
+    program, but as opaque *)
+  
+let <sum, sum> = Sum
+
+(** example using the encoding *)
+type bi = sum bool int
+
+let x : bi = sum.Left [bool] [int] true 
+let y : bi = sum.Right [bool] [int] 1
+
+let neg (x : bi) =
+  sum.case [bool] [int] x [bi]
+    (fun (x : bool) => sum.Left [bool] [int] (not x))
+    (fun (x : int)  => sum.Right [bool] [int] (if [int] (eq_int x 0) 1 0))
+
+(** Packing a la OCaml *)
+type Sum A B =
+    exi sum. 
+      { Left : A -> sum;
+        Right : B -> sum;
+          case : sum -> (all C. (A -> C) -> (B -> C) -> C) }
+
+let Sum [A] [B] =
+  < sum A B,
+  { Left = sum.Left [A] [B];
+    Right = sum.Right [A] [B];
+    case = sum.case [A] [B];
+  } as Sum A B>
+
+(** example using the encoding *)
+let <bi, bi> = Sum [bool] [int]
+
+let x : bi = bi.Left true 
+let y : bi = bi.Right 1
+
+let neg (x : bi) =
+  bi.case x [bi]
+    (fun (x : bool) => bi.Left (not x))
+    (fun (x : int)  => bi.Right (if [int] (eq_int x 0) 1 0))
+    

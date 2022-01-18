@@ -1,0 +1,94 @@
+type nat0 :: (Type -> Type) -> Type -> Type =
+  lam S :: Type -> Type. lam Z. Z
+type nat1 :: (Type -> Type) -> Type -> Type =
+  lam S :: Type -> Type. lam Z. S Z
+type add ::
+  ((Type -> Type) -> Type -> Type) ->
+  ((Type -> Type) -> Type -> Type) -> (Type -> Type) -> Type -> Type =
+  lam P :: (Type -> Type) -> Type -> Type.
+    lam Q :: (Type -> Type) -> Type -> Type. lam S :: Type -> Type.
+    lam Z.
+    P S (Q S Z)
+type times ::
+  ((Type -> Type) -> Type -> Type) ->
+  ((Type -> Type) -> Type -> Type) -> (Type -> Type) -> Type -> Type =
+  lam P :: (Type -> Type) -> Type -> Type.
+    lam Q :: (Type -> Type) -> Type -> Type. lam S :: Type -> Type.
+    lam Z.
+    P (Q S) Z
+type square ::
+  ((Type -> Type) -> Type -> Type) -> (Type -> Type) -> Type -> Type =
+  lam P :: (Type -> Type) -> Type -> Type. lam S :: Type -> Type.
+    lam Z.
+    P (P S) Z
+type nat2 :: (Type -> Type) -> Type -> Type =
+  lam S :: Type -> Type. lam Z. S (S Z)
+type nat4 :: (Type -> Type) -> Type -> Type =
+  lam S :: Type -> Type. lam Z. S (S (S (S Z)))
+type z = int
+type s :: Type -> Type = lam a. a * a
+val check :
+  ((((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+     (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))))) *
+    ((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+     (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int))))))) *
+   (((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+     (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))))) *
+    ((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+     (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+      ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+       (((int * int) * (int * int)) * ((int * int) * (int * int)))))))) ->
+    (((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+      (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))))) *
+     ((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+      (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int))))))) *
+    (((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+      (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))))) *
+     ((((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int))))) *
+      (((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))) *
+       ((((int * int) * (int * int)) * ((int * int) * (int * int))) *
+        (((int * int) * (int * int)) * ((int * int) * (int * int)))))))

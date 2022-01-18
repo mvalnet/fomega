@@ -1,0 +1,5 @@
+(** Church bool, no type definition, no packing *)
+
+let tt [A] (x:A) (y:A) = x
+let ff [A] (x:A) (y:A) = y
+let if_ [A] (b : all A. A -> A -> A) (x : A) (y : A) = b [A] x y

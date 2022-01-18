@@ -1,0 +1,4 @@
+val _ : (all F :: Type -> Type. int) -> int
+val _ : (all F :: Type -> Type. int) -> int
+val _ : all F :: Type -> Type. int
+val _ : all F :: Type -> Type. int

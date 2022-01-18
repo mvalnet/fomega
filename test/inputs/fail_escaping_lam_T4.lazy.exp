@@ -1,0 +1,5 @@
+File "./fail_escaping_lam_T4.fw", line 9, characters 8-36:
+
+Typing error: out of scope variable  a
+in actual type:   injective a
+Expected failure is ok!

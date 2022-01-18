@@ -1,0 +1,12 @@
+val fix : all A. (A -> A) -> A -> A
+type list_ :: Type -> Type -> Type = lam A. lam list. sum unit (A * list)
+type list :: Type -> Type = lam A. fix (list_ A)
+val nil : all A. list A
+val cons : all A. A -> list A -> list A
+val case_list : all A. all B. list A -> B -> ((A * list A) -> B) -> B
+val map :
+  all A. all B. ((A -> B) -> list A -> list B) -> (A -> B) ->
+    list A ->
+    list B
+val map : all A. all B. (A -> B) -> list A -> list B
+val map : all A. all B. (A -> B) -> list A -> list B

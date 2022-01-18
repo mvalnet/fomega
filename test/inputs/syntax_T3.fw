@@ -1,0 +1,5 @@
+let _ = fun (x : all F :: Type -> Type. int) => 1
+let _ = fun x : all F :: Type -> Type. int => 1
+
+let _ = fun [F :: Type -> Type] => 1
+let _ = fun F :: Type -> Type => 1

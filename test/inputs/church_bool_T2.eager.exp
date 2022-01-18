@@ -1,0 +1,11 @@
+type Bool = all A. A -> A -> A
+val tt : all A. A -> A -> A
+val ff : all A. A -> A -> A
+val if_ : all A. (all A1. A1 -> A1 -> A1) -> A -> A -> A
+val bool_church :
+  {tt : all A. A -> A -> A; ff : all A. A -> A -> A;
+   if_ : all A. (all A1. A1 -> A1 -> A1) -> A -> A -> A}
+type boolean =
+  exi bool1. {tt : bool1; ff : bool1; if_ : all A. bool1 -> A -> A -> A}
+val boolean :
+  exi bool1. {tt : bool1; ff : bool1; if_ : all A. bool1 -> A -> A -> A}

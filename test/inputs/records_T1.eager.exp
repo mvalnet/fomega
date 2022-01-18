@@ -1,0 +1,3 @@
+val ab : {a : int; b : unit}
+val ba : {b : unit; a : int}
+val c : int

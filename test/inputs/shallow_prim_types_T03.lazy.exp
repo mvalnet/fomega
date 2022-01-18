@@ -1,0 +1,11 @@
+val x : int
+val y : int
+val i1 : int
+val b1 : string
+type int1
+type string1 = int1
+val x : int
+val b2 : string
+val b21 : string
+val f : string1 -> string1
+val g : int1 -> int1

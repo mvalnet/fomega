@@ -1,0 +1,6 @@
+#option "fail"
+#include "map_pair_T3.fw"
+
+let map_pair1 : all A. all B. (A -> B) -> A -> A -> B * B = 
+      fun [A] [B] => map_pair [lam C. A] [lam C. B] [A] [B] 
+

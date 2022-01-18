@@ -1,0 +1,41 @@
+type sum :: Type -> Type -> Type =
+  lam A. lam B. all C. (A -> C) -> (B -> C) -> C
+val Left : all A. all B. A -> (all C. (A -> C) -> (B -> C) -> C)
+val Right : all A. all B. B -> (all C. (A -> C) -> (B -> C) -> C)
+val case :
+  all A. all B. (all C. (A -> C) -> (B -> C) -> C) ->
+    (all C. (A -> C) -> (B -> C) -> C)
+val sum :
+  {Left : all A. all B. A -> (all C. (A -> C) -> (B -> C) -> C);
+   Right : all A. all B. B -> (all C. (A -> C) -> (B -> C) -> C);
+   case : all A. all B. (all C. (A -> C) -> (B -> C) -> C) ->
+            (all C. (A -> C) -> (B -> C) -> C)}
+type Sum =
+  exi sum1 :: Type -> Type -> Type.
+    {Left : all A. all B. A -> sum1 A B; Right : all A. all B. B -> sum1 A B;
+     case : all A. all B. sum1 A B -> (all C. (A -> C) -> (B -> C) -> C)}
+val Sum :
+  exi sum1 :: Type -> Type -> Type.
+    {Left : all A. all B. A -> sum1 A B; Right : all A. all B. B -> sum1 A B;
+     case : all A. all B. sum1 A B -> (all C. (A -> C) -> (B -> C) -> C)}
+val <sum1,sum> =
+  {Left : all A. all B. A -> sum1 A B; Right : all A. all B. B -> sum1 A B;
+   case : all A. all B. sum1 A B -> (all C. (A -> C) -> (B -> C) -> C)}
+type bi = sum1 bool int
+val x : sum1 bool int
+val y : sum1 bool int
+val neg : sum1 bool int -> sum1 bool int
+type Sum1 :: Type -> Type -> Type =
+  lam A. lam B. exi sum2.
+    {Left : A -> sum2; Right : B -> sum2;
+     case : sum2 -> (all C. (A -> C) -> (B -> C) -> C)}
+val Sum :
+  all A. all B. exi sum2.
+    {Left : A -> sum2; Right : B -> sum2;
+     case : sum2 -> (all C. (A -> C) -> (B -> C) -> C)}
+val <bi1,bi> =
+  {Left : bool -> bi1; Right : int -> bi1;
+   case : bi1 -> (all C. (bool -> C) -> (int -> C) -> C)}
+val x : bi1
+val y : bi1
+val neg : bi1 -> bi1

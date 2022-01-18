@@ -1,0 +1,5 @@
+let f
+    [bar1] (x : bar1)
+    [bar1999] [bar1999]
+    [bar] [bar] (y : bar)
+  = 1

@@ -1,0 +1,16 @@
+type Nat = all B. B -> (B -> B) -> B
+val nat_church :
+  {zero : all A. A -> (A -> A) -> A;
+   succ : Nat -> (all A. A -> (A -> A) -> A); fold : Nat -> Nat}
+type abs_nat = exi t. {zero : t; succ : t -> t; fold : t -> Nat}
+val abs_nat_church : exi t. {zero : t; succ : t -> t; fold : t -> Nat}
+val prog : abs_nat -> unit
+val prog_with_nat_church : unit
+val if : all a. bool -> a -> a -> a
+val succ : int -> int
+val pred : int -> int
+val eq_int : int -> int -> bool
+val nat_prim :
+  {zero : int; succ : int -> int; fold : int -> (all A. A -> (A -> A) -> A)}
+val abs_nat_prim : exi t. {zero : t; succ : t -> t; fold : t -> Nat}
+val prog_with_nat_prim : unit

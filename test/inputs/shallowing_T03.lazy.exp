@@ -1,0 +1,4 @@
+type a
+type b = all a1. a1 -> a1
+type a1
+type a2

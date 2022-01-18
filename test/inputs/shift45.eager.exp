@@ -1,0 +1,7 @@
+type bar
+val bar1 : bar -> bar
+type bar1
+val bar2 : bar1 -> bar1
+type bar2
+val bar3 : bar2 -> bar2
+val bar12 : (bar -> bar) * (bar1 -> bar1) * (bar2 -> bar2)

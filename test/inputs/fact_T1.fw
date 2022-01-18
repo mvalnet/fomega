@@ -1,0 +1,4 @@
+#include "prelude.fw"
+
+let rec (fact : int -> int) (n : int) =  
+  (if [int] (gt_int n 1) (times n (fact (pred n))) 1) 

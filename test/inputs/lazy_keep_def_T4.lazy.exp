@@ -1,0 +1,5 @@
+type id = all A. A -> A
+val id : all A. A -> A
+val id_annotated : id
+val id_instantiated : id -> id
+val id_deannotated : all A. A -> A

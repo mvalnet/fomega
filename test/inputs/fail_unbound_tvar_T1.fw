@@ -1,0 +1,3 @@
+#option "fail"
+  
+let f (x : a) = ()

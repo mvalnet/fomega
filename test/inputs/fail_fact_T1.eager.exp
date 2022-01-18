@@ -1,0 +1,4 @@
+File "./fail_fact_T1.fw", line 4, characters 8-12:
+
+Unnanotated program variable:  fact
+Expected failure is ok!

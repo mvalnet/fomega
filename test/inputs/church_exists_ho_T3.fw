@@ -1,0 +1,20 @@
+(** This provides a church encoding of existential types (at the kind
+    [Type]) using the full power of Fomega. We cannot provide an encoding 
+    working at all kinds, as this would require kind polymorphism. *)
+
+
+(** encoding existential and universal as operators  *)
+
+type forall (F :: type -> type) = all (A). F A
+type exists (F :: type -> type) = exi (A). F A
+
+(** encoding existential as universal  *)
+      
+type Exi (F :: type -> type) = all A. (all B. F B -> A) -> A
+
+let pack [F :: type -> type] [A] (v : F A)  =
+  fun [C] (f : all B. F B -> C)  => f [A] v
+
+let unpack [F :: type -> type] =
+  fun (v : Exi F) [B] (body : all A. F A -> B) => v [B] body
+

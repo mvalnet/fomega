@@ -1,0 +1,14 @@
+type bar
+
+let bar1 = fun (x : bar) => x
+
+type bar
+
+let bar2 = fun (x : bar) => x
+
+type bar
+
+let bar3 = fun (x : bar) => x
+
+let bar12 = bar1, bar2, bar3
+   

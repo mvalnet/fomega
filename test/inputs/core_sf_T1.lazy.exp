@@ -1,0 +1,4 @@
+val id : all A. A -> A
+val compose : all A. all B. all C. (B -> C) -> (A -> B) -> A -> C
+val app : all A. all B. (A -> B) -> A -> B
+val if : all A. bool -> A -> A -> A

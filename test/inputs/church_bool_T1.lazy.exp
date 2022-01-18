@@ -1,0 +1,3 @@
+val tt : all A. A -> A -> A
+val ff : all A. A -> A -> A
+val if_ : all A. (all A1. A1 -> A1 -> A1) -> A -> A -> A

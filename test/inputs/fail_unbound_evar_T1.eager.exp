@@ -1,0 +1,4 @@
+File "./fail_unbound_evar_T1.fw", line 3, characters 8-9:
+
+Unbound expession variable:  x
+Expected failure is ok!

@@ -1,0 +1,3 @@
+val nat_as_church :
+  all C.
+    (all B. (lam t. {zero : t; succ : t -> t; fold : t -> Nat}) B -> C) -> C

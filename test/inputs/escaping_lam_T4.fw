@@ -1,0 +1,12 @@
+#include "prelude.fw" 
+
+type ph_int a = int  
+
+let x = <int, (succ, 1) as exi a. (a -> ph_int int) * a>
+let y = let <a, fv> = x in fv.1 fv.2
+(** Should return ph_int int, unexpanded *)
+
+let x = <int, (succ, 1) as exi a. (a -> ph_int a) * a>
+let y = let <a, fv> = x in fv.1 fv.2
+(** Should not,  return ph_int a, which is ill formed, not fail,
+  but expand the abbreviation and return int *)  

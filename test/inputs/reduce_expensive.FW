@@ -1,0 +1,6 @@
+#include "reduce.fw"
+
+(** expensive computation if not done lazily *)
+let check (x : times nat6 (add nat1 nat2) s z)
+  : add nat6 (times nat6 nat2) s z = x
+  

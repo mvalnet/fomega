@@ -1,0 +1,25 @@
+type foo1 = int
+type foo1999 = int
+type foo1999 = int
+type foo = int
+
+let x : foo = 1      
+
+type foo = string
+
+let y : foo = "aa"      
+      
+type foo = int
+type foo = foo
+
+let z : foo = 2
+
+type foo = string
+
+let y : foo = "aa"      
+      
+type foo = int
+
+let z : foo = 2
+    
+let f [bar1] (x : bar1) [bar1999] [bar1999] [bar] [bar] (y : bar) = 1

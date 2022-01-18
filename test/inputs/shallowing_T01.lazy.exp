@@ -1,0 +1,1 @@
+val _ : all a. (all a1. a1 -> a1) -> (all a1. all a2. unit)

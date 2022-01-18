@@ -1,0 +1,8 @@
+File "./fail_check_leq_expand_T4.fw", line 5, characters 25-26:
+
+Typing error: mistmatch between: 
+Actual type:     int
+Expected type:   unit
+-- in actual:    int
+-- in expected:  unit
+Expected failure is ok!

@@ -1,0 +1,8 @@
+File "./fail_map_pair_T3.fw", line 5, characters 6-59:
+
+Typing error: mistmatch between: 
+Actual type:     all A. all B. (all C. A -> B) -> A -> A -> B * B
+Expected type:   all A. all B. (A -> B) -> A -> A -> B * B
+-- in actual:    all C. A -> B
+-- in expected:  A -> B
+Expected failure is ok!

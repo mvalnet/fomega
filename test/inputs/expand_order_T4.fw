@@ -1,0 +1,14 @@
+type one = int
+type two = one
+
+let x : one = 1
+let f (x : one) = x
+let y : two = 2
+let g (x : two) = x    
+
+let fx = f x
+let fy = f y
+let gx = g x
+let gy = g y
+
+    

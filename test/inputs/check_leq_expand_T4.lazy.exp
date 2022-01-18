@@ -1,0 +1,2 @@
+type foo = int
+val f : foo -> int

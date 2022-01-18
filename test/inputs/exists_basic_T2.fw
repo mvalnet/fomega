@@ -1,0 +1,5 @@
+#include "prelude.fw" 
+
+let x = <int, (succ, 1) as exi a. (a -> int) * a>
+
+let y = let <a, fv> = x in fv.1 fv.2

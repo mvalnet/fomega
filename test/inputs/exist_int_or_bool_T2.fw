@@ -1,0 +1,12 @@
+let neg (x : int) = x
+
+let not (x : bool) = x
+
+let pneg = < int, neg as exi a. a -> a > 
+let pnot = < bool, not as exi a. a -> a >
+
+let f (p : exi a. a -> a) = 
+  let <a, x> = p in <a, fun (y : a) => x y as exi a. a -> a>
+
+let fneg = f pneg
+let fnot = f pnot

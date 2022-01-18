@@ -1,0 +1,803 @@
+;; This file has been auto-generated. Please do not edit it.
+;; Instead, edit ../Test.ml (if needed),
+;; then run [make depend] at the top level.
+
+(rule (target ./check_leq_expand_T4.lazy.out) (deps ./check_leq_expand_T4.fw)
+  (action
+    (with-stdout-to ./check_leq_expand_T4.lazy.out
+      (run ../../src/main.exe ./check_leq_expand_T4.fw --lazy))))
+
+(rule (alias check_leq_expand_T4.lazy.target)
+  (action
+    (diff ./check_leq_expand_T4.lazy.exp ./check_leq_expand_T4.lazy.out)))
+
+(rule (target ./check_leq_expand_T4.eager.out)
+  (deps ./check_leq_expand_T4.fw)
+  (action
+    (with-stdout-to ./check_leq_expand_T4.eager.out
+      (run ../../src/main.exe ./check_leq_expand_T4.fw --eager))))
+
+(rule (alias check_leq_expand_T4.eager.target)
+  (action
+    (diff ./check_leq_expand_T4.eager.exp ./check_leq_expand_T4.eager.out)))
+
+(rule (target ./church_bool_T1.lazy.out) (deps ./church_bool_T1.fw)
+  (action
+    (with-stdout-to ./church_bool_T1.lazy.out
+      (run ../../src/main.exe ./church_bool_T1.fw --lazy))))
+
+(rule (alias church_bool_T1.lazy.target)
+  (action (diff ./church_bool_T1.lazy.exp ./church_bool_T1.lazy.out)))
+
+(rule (target ./church_bool_T1.eager.out) (deps ./church_bool_T1.fw)
+  (action
+    (with-stdout-to ./church_bool_T1.eager.out
+      (run ../../src/main.exe ./church_bool_T1.fw --eager))))
+
+(rule (alias church_bool_T1.eager.target)
+  (action (diff ./church_bool_T1.eager.exp ./church_bool_T1.eager.out)))
+
+(rule (target ./church_bool_T2.lazy.out) (deps ./church_bool_T2.fw)
+  (action
+    (with-stdout-to ./church_bool_T2.lazy.out
+      (run ../../src/main.exe ./church_bool_T2.fw --lazy))))
+
+(rule (alias church_bool_T2.lazy.target)
+  (action (diff ./church_bool_T2.lazy.exp ./church_bool_T2.lazy.out)))
+
+(rule (target ./church_bool_T2.eager.out) (deps ./church_bool_T2.fw)
+  (action
+    (with-stdout-to ./church_bool_T2.eager.out
+      (run ../../src/main.exe ./church_bool_T2.fw --eager))))
+
+(rule (alias church_bool_T2.eager.target)
+  (action (diff ./church_bool_T2.eager.exp ./church_bool_T2.eager.out)))
+
+(rule (target ./church_exists_ho_T3.lazy.out) (deps ./church_exists_ho_T3.fw)
+  (action
+    (with-stdout-to ./church_exists_ho_T3.lazy.out
+      (run ../../src/main.exe ./church_exists_ho_T3.fw --lazy))))
+
+(rule (alias church_exists_ho_T3.lazy.target)
+  (action
+    (diff ./church_exists_ho_T3.lazy.exp ./church_exists_ho_T3.lazy.out)))
+
+(rule (target ./church_exists_ho_T3.eager.out)
+  (deps ./church_exists_ho_T3.fw)
+  (action
+    (with-stdout-to ./church_exists_ho_T3.eager.out
+      (run ../../src/main.exe ./church_exists_ho_T3.fw --eager))))
+
+(rule (alias church_exists_ho_T3.eager.target)
+  (action
+    (diff ./church_exists_ho_T3.eager.exp ./church_exists_ho_T3.eager.out)))
+
+(rule (target ./church_exists_ho_test_T3.lazy.out)
+  (deps ./church_exists_ho_test_T3.fw)
+  (action
+    (with-stdout-to ./church_exists_ho_test_T3.lazy.out
+      (run ../../src/main.exe ./church_exists_ho_test_T3.fw --lazy))))
+
+(rule (alias church_exists_ho_test_T3.lazy.target)
+  (action
+    (diff ./church_exists_ho_test_T3.lazy.exp
+      ./church_exists_ho_test_T3.lazy.out)))
+
+(rule (target ./church_exists_ho_test_T3.eager.out)
+  (deps ./church_exists_ho_test_T3.fw)
+  (action
+    (with-stdout-to ./church_exists_ho_test_T3.eager.out
+      (run ../../src/main.exe ./church_exists_ho_test_T3.fw --eager))))
+
+(rule (alias church_exists_ho_test_T3.eager.target)
+  (action
+    (diff ./church_exists_ho_test_T3.eager.exp
+      ./church_exists_ho_test_T3.eager.out)))
+
+(rule (target ./church_sum_T3.lazy.out) (deps ./church_sum_T3.fw)
+  (action
+    (with-stdout-to ./church_sum_T3.lazy.out
+      (run ../../src/main.exe ./church_sum_T3.fw --lazy))))
+
+(rule (alias church_sum_T3.lazy.target)
+  (action (diff ./church_sum_T3.lazy.exp ./church_sum_T3.lazy.out)))
+
+(rule (target ./church_sum_T3.eager.out) (deps ./church_sum_T3.fw)
+  (action
+    (with-stdout-to ./church_sum_T3.eager.out
+      (run ../../src/main.exe ./church_sum_T3.fw --eager))))
+
+(rule (alias church_sum_T3.eager.target)
+  (action (diff ./church_sum_T3.eager.exp ./church_sum_T3.eager.out)))
+
+(rule (target ./core_sf_T1.lazy.out) (deps ./core_sf_T1.fw)
+  (action
+    (with-stdout-to ./core_sf_T1.lazy.out
+      (run ../../src/main.exe ./core_sf_T1.fw --lazy))))
+
+(rule (alias core_sf_T1.lazy.target)
+  (action (diff ./core_sf_T1.lazy.exp ./core_sf_T1.lazy.out)))
+
+(rule (target ./core_sf_T1.eager.out) (deps ./core_sf_T1.fw)
+  (action
+    (with-stdout-to ./core_sf_T1.eager.out
+      (run ../../src/main.exe ./core_sf_T1.fw --eager))))
+
+(rule (alias core_sf_T1.eager.target)
+  (action (diff ./core_sf_T1.eager.exp ./core_sf_T1.eager.out)))
+
+(rule (target ./escaping_lam_T4.lazy.out) (deps ./escaping_lam_T4.fw)
+  (action
+    (with-stdout-to ./escaping_lam_T4.lazy.out
+      (run ../../src/main.exe ./escaping_lam_T4.fw --lazy))))
+
+(rule (alias escaping_lam_T4.lazy.target)
+  (action (diff ./escaping_lam_T4.lazy.exp ./escaping_lam_T4.lazy.out)))
+
+(rule (target ./escaping_lam_T4.eager.out) (deps ./escaping_lam_T4.fw)
+  (action
+    (with-stdout-to ./escaping_lam_T4.eager.out
+      (run ../../src/main.exe ./escaping_lam_T4.fw --eager))))
+
+(rule (alias escaping_lam_T4.eager.target)
+  (action (diff ./escaping_lam_T4.eager.exp ./escaping_lam_T4.eager.out)))
+
+(rule (target ./exist_int_or_bool_T2.lazy.out)
+  (deps ./exist_int_or_bool_T2.fw)
+  (action
+    (with-stdout-to ./exist_int_or_bool_T2.lazy.out
+      (run ../../src/main.exe ./exist_int_or_bool_T2.fw --lazy))))
+
+(rule (alias exist_int_or_bool_T2.lazy.target)
+  (action
+    (diff ./exist_int_or_bool_T2.lazy.exp ./exist_int_or_bool_T2.lazy.out)))
+
+(rule (target ./exist_int_or_bool_T2.eager.out)
+  (deps ./exist_int_or_bool_T2.fw)
+  (action
+    (with-stdout-to ./exist_int_or_bool_T2.eager.out
+      (run ../../src/main.exe ./exist_int_or_bool_T2.fw --eager))))
+
+(rule (alias exist_int_or_bool_T2.eager.target)
+  (action
+    (diff ./exist_int_or_bool_T2.eager.exp ./exist_int_or_bool_T2.eager.out)))
+
+(rule (target ./exists_basic_T2.lazy.out) (deps ./exists_basic_T2.fw)
+  (action
+    (with-stdout-to ./exists_basic_T2.lazy.out
+      (run ../../src/main.exe ./exists_basic_T2.fw --lazy))))
+
+(rule (alias exists_basic_T2.lazy.target)
+  (action (diff ./exists_basic_T2.lazy.exp ./exists_basic_T2.lazy.out)))
+
+(rule (target ./exists_basic_T2.eager.out) (deps ./exists_basic_T2.fw)
+  (action
+    (with-stdout-to ./exists_basic_T2.eager.out
+      (run ../../src/main.exe ./exists_basic_T2.fw --eager))))
+
+(rule (alias exists_basic_T2.eager.target)
+  (action (diff ./exists_basic_T2.eager.exp ./exists_basic_T2.eager.out)))
+
+(rule (target ./exp_let_rec_annot_X3.lazy.out)
+  (deps ./exp_let_rec_annot_X3.fw)
+  (action
+    (with-stdout-to ./exp_let_rec_annot_X3.lazy.out
+      (run ../../src/main.exe ./exp_let_rec_annot_X3.fw --lazy))))
+
+(rule (alias exp_let_rec_annot_X3.lazy.target)
+  (action
+    (diff ./exp_let_rec_annot_X3.lazy.exp ./exp_let_rec_annot_X3.lazy.out)))
+
+(rule (target ./exp_let_rec_annot_X3.eager.out)
+  (deps ./exp_let_rec_annot_X3.fw)
+  (action
+    (with-stdout-to ./exp_let_rec_annot_X3.eager.out
+      (run ../../src/main.exe ./exp_let_rec_annot_X3.fw --eager))))
+
+(rule (alias exp_let_rec_annot_X3.eager.target)
+  (action
+    (diff ./exp_let_rec_annot_X3.eager.exp ./exp_let_rec_annot_X3.eager.out)))
+
+(rule (target ./expand_order_T4.lazy.out) (deps ./expand_order_T4.fw)
+  (action
+    (with-stdout-to ./expand_order_T4.lazy.out
+      (run ../../src/main.exe ./expand_order_T4.fw --lazy))))
+
+(rule (alias expand_order_T4.lazy.target)
+  (action (diff ./expand_order_T4.lazy.exp ./expand_order_T4.lazy.out)))
+
+(rule (target ./expand_order_T4.eager.out) (deps ./expand_order_T4.fw)
+  (action
+    (with-stdout-to ./expand_order_T4.eager.out
+      (run ../../src/main.exe ./expand_order_T4.fw --eager))))
+
+(rule (alias expand_order_T4.eager.target)
+  (action (diff ./expand_order_T4.eager.exp ./expand_order_T4.eager.out)))
+
+(rule (target ./fact_T1.lazy.out) (deps ./fact_T1.fw)
+  (action
+    (with-stdout-to ./fact_T1.lazy.out
+      (run ../../src/main.exe ./fact_T1.fw --lazy))))
+
+(rule (alias fact_T1.lazy.target)
+  (action (diff ./fact_T1.lazy.exp ./fact_T1.lazy.out)))
+
+(rule (target ./fact_T1.eager.out) (deps ./fact_T1.fw)
+  (action
+    (with-stdout-to ./fact_T1.eager.out
+      (run ../../src/main.exe ./fact_T1.fw --eager))))
+
+(rule (alias fact_T1.eager.target)
+  (action (diff ./fact_T1.eager.exp ./fact_T1.eager.out)))
+
+(rule (target ./fail_check_leq_expand_T4.lazy.out)
+  (deps ./fail_check_leq_expand_T4.fw)
+  (action
+    (with-stdout-to ./fail_check_leq_expand_T4.lazy.out
+      (run ../../src/main.exe ./fail_check_leq_expand_T4.fw --lazy))))
+
+(rule (alias fail_check_leq_expand_T4.lazy.target)
+  (action
+    (diff ./fail_check_leq_expand_T4.lazy.exp
+      ./fail_check_leq_expand_T4.lazy.out)))
+
+(rule (target ./fail_check_leq_expand_T4.eager.out)
+  (deps ./fail_check_leq_expand_T4.fw)
+  (action
+    (with-stdout-to ./fail_check_leq_expand_T4.eager.out
+      (run ../../src/main.exe ./fail_check_leq_expand_T4.fw --eager))))
+
+(rule (alias fail_check_leq_expand_T4.eager.target)
+  (action
+    (diff ./fail_check_leq_expand_T4.eager.exp
+      ./fail_check_leq_expand_T4.eager.out)))
+
+(rule (target ./fail_escaping_lam_T4.lazy.out)
+  (deps ./fail_escaping_lam_T4.fw)
+  (action
+    (with-stdout-to ./fail_escaping_lam_T4.lazy.out
+      (run ../../src/main.exe ./fail_escaping_lam_T4.fw --lazy))))
+
+(rule (alias fail_escaping_lam_T4.lazy.target)
+  (action
+    (diff ./fail_escaping_lam_T4.lazy.exp ./fail_escaping_lam_T4.lazy.out)))
+
+(rule (target ./fail_escaping_lam_T4.eager.out)
+  (deps ./fail_escaping_lam_T4.fw)
+  (action
+    (with-stdout-to ./fail_escaping_lam_T4.eager.out
+      (run ../../src/main.exe ./fail_escaping_lam_T4.fw --eager))))
+
+(rule (alias fail_escaping_lam_T4.eager.target)
+  (action
+    (diff ./fail_escaping_lam_T4.eager.exp ./fail_escaping_lam_T4.eager.out)))
+
+(rule (target ./fail_exist_T2.lazy.out) (deps ./fail_exist_T2.fw)
+  (action
+    (with-stdout-to ./fail_exist_T2.lazy.out
+      (run ../../src/main.exe ./fail_exist_T2.fw --lazy))))
+
+(rule (alias fail_exist_T2.lazy.target)
+  (action (diff ./fail_exist_T2.lazy.exp ./fail_exist_T2.lazy.out)))
+
+(rule (target ./fail_exist_T2.eager.out) (deps ./fail_exist_T2.fw)
+  (action
+    (with-stdout-to ./fail_exist_T2.eager.out
+      (run ../../src/main.exe ./fail_exist_T2.fw --eager))))
+
+(rule (alias fail_exist_T2.eager.target)
+  (action (diff ./fail_exist_T2.eager.exp ./fail_exist_T2.eager.out)))
+
+(rule (target ./fail_fact_T1.lazy.out) (deps ./fail_fact_T1.fw)
+  (action
+    (with-stdout-to ./fail_fact_T1.lazy.out
+      (run ../../src/main.exe ./fail_fact_T1.fw --lazy))))
+
+(rule (alias fail_fact_T1.lazy.target)
+  (action (diff ./fail_fact_T1.lazy.exp ./fail_fact_T1.lazy.out)))
+
+(rule (target ./fail_fact_T1.eager.out) (deps ./fail_fact_T1.fw)
+  (action
+    (with-stdout-to ./fail_fact_T1.eager.out
+      (run ../../src/main.exe ./fail_fact_T1.fw --eager))))
+
+(rule (alias fail_fact_T1.eager.target)
+  (action (diff ./fail_fact_T1.eager.exp ./fail_fact_T1.eager.out)))
+
+(rule (target ./fail_map_pair_T3.lazy.out) (deps ./fail_map_pair_T3.fw)
+  (action
+    (with-stdout-to ./fail_map_pair_T3.lazy.out
+      (run ../../src/main.exe ./fail_map_pair_T3.fw --lazy))))
+
+(rule (alias fail_map_pair_T3.lazy.target)
+  (action (diff ./fail_map_pair_T3.lazy.exp ./fail_map_pair_T3.lazy.out)))
+
+(rule (target ./fail_map_pair_T3.eager.out) (deps ./fail_map_pair_T3.fw)
+  (action
+    (with-stdout-to ./fail_map_pair_T3.eager.out
+      (run ../../src/main.exe ./fail_map_pair_T3.fw --eager))))
+
+(rule (alias fail_map_pair_T3.eager.target)
+  (action (diff ./fail_map_pair_T3.eager.exp ./fail_map_pair_T3.eager.out)))
+
+(rule (target ./fail_record_T1.lazy.out) (deps ./fail_record_T1.fw)
+  (action
+    (with-stdout-to ./fail_record_T1.lazy.out
+      (run ../../src/main.exe ./fail_record_T1.fw --lazy))))
+
+(rule (alias fail_record_T1.lazy.target)
+  (action (diff ./fail_record_T1.lazy.exp ./fail_record_T1.lazy.out)))
+
+(rule (target ./fail_record_T1.eager.out) (deps ./fail_record_T1.fw)
+  (action
+    (with-stdout-to ./fail_record_T1.eager.out
+      (run ../../src/main.exe ./fail_record_T1.fw --eager))))
+
+(rule (alias fail_record_T1.eager.target)
+  (action (diff ./fail_record_T1.eager.exp ./fail_record_T1.eager.out)))
+
+(rule (target ./fail_record_access_T1.lazy.out)
+  (deps ./fail_record_access_T1.fw)
+  (action
+    (with-stdout-to ./fail_record_access_T1.lazy.out
+      (run ../../src/main.exe ./fail_record_access_T1.fw --lazy))))
+
+(rule (alias fail_record_access_T1.lazy.target)
+  (action
+    (diff ./fail_record_access_T1.lazy.exp ./fail_record_access_T1.lazy.out)))
+
+(rule (target ./fail_record_access_T1.eager.out)
+  (deps ./fail_record_access_T1.fw)
+  (action
+    (with-stdout-to ./fail_record_access_T1.eager.out
+      (run ../../src/main.exe ./fail_record_access_T1.fw --eager))))
+
+(rule (alias fail_record_access_T1.eager.target)
+  (action
+    (diff ./fail_record_access_T1.eager.exp
+      ./fail_record_access_T1.eager.out)))
+
+(rule (target ./fail_unbound_evar_T1.lazy.out)
+  (deps ./fail_unbound_evar_T1.fw)
+  (action
+    (with-stdout-to ./fail_unbound_evar_T1.lazy.out
+      (run ../../src/main.exe ./fail_unbound_evar_T1.fw --lazy))))
+
+(rule (alias fail_unbound_evar_T1.lazy.target)
+  (action
+    (diff ./fail_unbound_evar_T1.lazy.exp ./fail_unbound_evar_T1.lazy.out)))
+
+(rule (target ./fail_unbound_evar_T1.eager.out)
+  (deps ./fail_unbound_evar_T1.fw)
+  (action
+    (with-stdout-to ./fail_unbound_evar_T1.eager.out
+      (run ../../src/main.exe ./fail_unbound_evar_T1.fw --eager))))
+
+(rule (alias fail_unbound_evar_T1.eager.target)
+  (action
+    (diff ./fail_unbound_evar_T1.eager.exp ./fail_unbound_evar_T1.eager.out)))
+
+(rule (target ./fail_unbound_tvar_T1.lazy.out)
+  (deps ./fail_unbound_tvar_T1.fw)
+  (action
+    (with-stdout-to ./fail_unbound_tvar_T1.lazy.out
+      (run ../../src/main.exe ./fail_unbound_tvar_T1.fw --lazy))))
+
+(rule (alias fail_unbound_tvar_T1.lazy.target)
+  (action
+    (diff ./fail_unbound_tvar_T1.lazy.exp ./fail_unbound_tvar_T1.lazy.out)))
+
+(rule (target ./fail_unbound_tvar_T1.eager.out)
+  (deps ./fail_unbound_tvar_T1.fw)
+  (action
+    (with-stdout-to ./fail_unbound_tvar_T1.eager.out
+      (run ../../src/main.exe ./fail_unbound_tvar_T1.fw --eager))))
+
+(rule (alias fail_unbound_tvar_T1.eager.target)
+  (action
+    (diff ./fail_unbound_tvar_T1.eager.exp ./fail_unbound_tvar_T1.eager.out)))
+
+(rule (target ./fail_unbound_tvar_T3.lazy.out)
+  (deps ./fail_unbound_tvar_T3.fw)
+  (action
+    (with-stdout-to ./fail_unbound_tvar_T3.lazy.out
+      (run ../../src/main.exe ./fail_unbound_tvar_T3.fw --lazy))))
+
+(rule (alias fail_unbound_tvar_T3.lazy.target)
+  (action
+    (diff ./fail_unbound_tvar_T3.lazy.exp ./fail_unbound_tvar_T3.lazy.out)))
+
+(rule (target ./fail_unbound_tvar_T3.eager.out)
+  (deps ./fail_unbound_tvar_T3.fw)
+  (action
+    (with-stdout-to ./fail_unbound_tvar_T3.eager.out
+      (run ../../src/main.exe ./fail_unbound_tvar_T3.fw --eager))))
+
+(rule (alias fail_unbound_tvar_T3.eager.target)
+  (action
+    (diff ./fail_unbound_tvar_T3.eager.exp ./fail_unbound_tvar_T3.eager.out)))
+
+(rule (target ./hello.lazy.out) (deps ./hello.fw)
+  (action
+    (with-stdout-to ./hello.lazy.out
+      (run ../../src/main.exe ./hello.fw --lazy))))
+
+(rule (alias hello.lazy.target)
+  (action (diff ./hello.lazy.exp ./hello.lazy.out)))
+
+(rule (target ./hello.eager.out) (deps ./hello.fw)
+  (action
+    (with-stdout-to ./hello.eager.out
+      (run ../../src/main.exe ./hello.fw --eager))))
+
+(rule (alias hello.eager.target)
+  (action (diff ./hello.eager.exp ./hello.eager.out)))
+
+(rule (target ./identity1.lazy.out) (deps ./identity1.fw)
+  (action
+    (with-stdout-to ./identity1.lazy.out
+      (run ../../src/main.exe ./identity1.fw --lazy))))
+
+(rule (alias identity1.lazy.target)
+  (action (diff ./identity1.lazy.exp ./identity1.lazy.out)))
+
+(rule (target ./identity1.eager.out) (deps ./identity1.fw)
+  (action
+    (with-stdout-to ./identity1.eager.out
+      (run ../../src/main.exe ./identity1.fw --eager))))
+
+(rule (alias identity1.eager.target)
+  (action (diff ./identity1.eager.exp ./identity1.eager.out)))
+
+(rule (target ./lazy_keep_def_T4.lazy.out) (deps ./lazy_keep_def_T4.fw)
+  (action
+    (with-stdout-to ./lazy_keep_def_T4.lazy.out
+      (run ../../src/main.exe ./lazy_keep_def_T4.fw --lazy))))
+
+(rule (alias lazy_keep_def_T4.lazy.target)
+  (action (diff ./lazy_keep_def_T4.lazy.exp ./lazy_keep_def_T4.lazy.out)))
+
+(rule (target ./lazy_keep_def_T4.eager.out) (deps ./lazy_keep_def_T4.fw)
+  (action
+    (with-stdout-to ./lazy_keep_def_T4.eager.out
+      (run ../../src/main.exe ./lazy_keep_def_T4.fw --eager))))
+
+(rule (alias lazy_keep_def_T4.eager.target)
+  (action (diff ./lazy_keep_def_T4.eager.exp ./lazy_keep_def_T4.eager.out)))
+
+(rule (target ./list_T3.lazy.out) (deps ./list_T3.fw)
+  (action
+    (with-stdout-to ./list_T3.lazy.out
+      (run ../../src/main.exe ./list_T3.fw --lazy))))
+
+(rule (alias list_T3.lazy.target)
+  (action (diff ./list_T3.lazy.exp ./list_T3.lazy.out)))
+
+(rule (target ./list_T3.eager.out) (deps ./list_T3.fw)
+  (action
+    (with-stdout-to ./list_T3.eager.out
+      (run ../../src/main.exe ./list_T3.fw --eager))))
+
+(rule (alias list_T3.eager.target)
+  (action (diff ./list_T3.eager.exp ./list_T3.eager.out)))
+
+(rule (target ./map_pair_T3.lazy.out) (deps ./map_pair_T3.fw)
+  (action
+    (with-stdout-to ./map_pair_T3.lazy.out
+      (run ../../src/main.exe ./map_pair_T3.fw --lazy))))
+
+(rule (alias map_pair_T3.lazy.target)
+  (action (diff ./map_pair_T3.lazy.exp ./map_pair_T3.lazy.out)))
+
+(rule (target ./map_pair_T3.eager.out) (deps ./map_pair_T3.fw)
+  (action
+    (with-stdout-to ./map_pair_T3.eager.out
+      (run ../../src/main.exe ./map_pair_T3.fw --eager))))
+
+(rule (alias map_pair_T3.eager.target)
+  (action (diff ./map_pair_T3.eager.exp ./map_pair_T3.eager.out)))
+
+(rule (target ./nat_pack_unpack_T3.lazy.out) (deps ./nat_pack_unpack_T3.fw)
+  (action
+    (with-stdout-to ./nat_pack_unpack_T3.lazy.out
+      (run ../../src/main.exe ./nat_pack_unpack_T3.fw --lazy))))
+
+(rule (alias nat_pack_unpack_T3.lazy.target)
+  (action (diff ./nat_pack_unpack_T3.lazy.exp ./nat_pack_unpack_T3.lazy.out)))
+
+(rule (target ./nat_pack_unpack_T3.eager.out) (deps ./nat_pack_unpack_T3.fw)
+  (action
+    (with-stdout-to ./nat_pack_unpack_T3.eager.out
+      (run ../../src/main.exe ./nat_pack_unpack_T3.fw --eager))))
+
+(rule (alias nat_pack_unpack_T3.eager.target)
+  (action
+    (diff ./nat_pack_unpack_T3.eager.exp ./nat_pack_unpack_T3.eager.out)))
+
+(rule (target ./prelude.lazy.out) (deps ./prelude.fw)
+  (action
+    (with-stdout-to ./prelude.lazy.out
+      (run ../../src/main.exe ./prelude.fw --lazy))))
+
+(rule (alias prelude.lazy.target)
+  (action (diff ./prelude.lazy.exp ./prelude.lazy.out)))
+
+(rule (target ./prelude.eager.out) (deps ./prelude.fw)
+  (action
+    (with-stdout-to ./prelude.eager.out
+      (run ../../src/main.exe ./prelude.fw --eager))))
+
+(rule (alias prelude.eager.target)
+  (action (diff ./prelude.eager.exp ./prelude.eager.out)))
+
+(rule (target ./prim_sum_T3.lazy.out) (deps ./prim_sum_T3.fw)
+  (action
+    (with-stdout-to ./prim_sum_T3.lazy.out
+      (run ../../src/main.exe ./prim_sum_T3.fw --lazy))))
+
+(rule (alias prim_sum_T3.lazy.target)
+  (action (diff ./prim_sum_T3.lazy.exp ./prim_sum_T3.lazy.out)))
+
+(rule (target ./prim_sum_T3.eager.out) (deps ./prim_sum_T3.fw)
+  (action
+    (with-stdout-to ./prim_sum_T3.eager.out
+      (run ../../src/main.exe ./prim_sum_T3.fw --eager))))
+
+(rule (alias prim_sum_T3.eager.target)
+  (action (diff ./prim_sum_T3.eager.exp ./prim_sum_T3.eager.out)))
+
+(rule (target ./records_T1.lazy.out) (deps ./records_T1.fw)
+  (action
+    (with-stdout-to ./records_T1.lazy.out
+      (run ../../src/main.exe ./records_T1.fw --lazy))))
+
+(rule (alias records_T1.lazy.target)
+  (action (diff ./records_T1.lazy.exp ./records_T1.lazy.out)))
+
+(rule (target ./records_T1.eager.out) (deps ./records_T1.fw)
+  (action
+    (with-stdout-to ./records_T1.eager.out
+      (run ../../src/main.exe ./records_T1.fw --eager))))
+
+(rule (alias records_T1.eager.target)
+  (action (diff ./records_T1.eager.exp ./records_T1.eager.out)))
+
+(rule (target ./rectypes_T3.lazy.out) (deps ./rectypes_T3.fw)
+  (action
+    (with-stdout-to ./rectypes_T3.lazy.out
+      (run ../../src/main.exe ./rectypes_T3.fw --lazy))))
+
+(rule (alias rectypes_T3.lazy.target)
+  (action (diff ./rectypes_T3.lazy.exp ./rectypes_T3.lazy.out)))
+
+(rule (target ./rectypes_T3.eager.out) (deps ./rectypes_T3.fw)
+  (action
+    (with-stdout-to ./rectypes_T3.eager.out
+      (run ../../src/main.exe ./rectypes_T3.fw --eager))))
+
+(rule (alias rectypes_T3.eager.target)
+  (action (diff ./rectypes_T3.eager.exp ./rectypes_T3.eager.out)))
+
+(rule (target ./reduce_T4.lazy.out) (deps ./reduce_T4.fw)
+  (action
+    (with-stdout-to ./reduce_T4.lazy.out
+      (run ../../src/main.exe ./reduce_T4.fw --lazy))))
+
+(rule (alias reduce_T4.lazy.target)
+  (action (diff ./reduce_T4.lazy.exp ./reduce_T4.lazy.out)))
+
+(rule (target ./reduce_T4.eager.out) (deps ./reduce_T4.fw)
+  (action
+    (with-stdout-to ./reduce_T4.eager.out
+      (run ../../src/main.exe ./reduce_T4.fw --eager))))
+
+(rule (alias reduce_T4.eager.target)
+  (action (diff ./reduce_T4.eager.exp ./reduce_T4.eager.out)))
+
+(rule (target ./shadowing_core_X1.lazy.out) (deps ./shadowing_core_X1.fw)
+  (action
+    (with-stdout-to ./shadowing_core_X1.lazy.out
+      (run ../../src/main.exe ./shadowing_core_X1.fw --lazy))))
+
+(rule (alias shadowing_core_X1.lazy.target)
+  (action (diff ./shadowing_core_X1.lazy.exp ./shadowing_core_X1.lazy.out)))
+
+(rule (target ./shadowing_core_X1.eager.out) (deps ./shadowing_core_X1.fw)
+  (action
+    (with-stdout-to ./shadowing_core_X1.eager.out
+      (run ../../src/main.exe ./shadowing_core_X1.fw --eager))))
+
+(rule (alias shadowing_core_X1.eager.target)
+  (action (diff ./shadowing_core_X1.eager.exp ./shadowing_core_X1.eager.out)))
+
+(rule (target ./shadowing_typedef_X1.lazy.out)
+  (deps ./shadowing_typedef_X1.fw)
+  (action
+    (with-stdout-to ./shadowing_typedef_X1.lazy.out
+      (run ../../src/main.exe ./shadowing_typedef_X1.fw --lazy))))
+
+(rule (alias shadowing_typedef_X1.lazy.target)
+  (action
+    (diff ./shadowing_typedef_X1.lazy.exp ./shadowing_typedef_X1.lazy.out)))
+
+(rule (target ./shadowing_typedef_X1.eager.out)
+  (deps ./shadowing_typedef_X1.fw)
+  (action
+    (with-stdout-to ./shadowing_typedef_X1.eager.out
+      (run ../../src/main.exe ./shadowing_typedef_X1.fw --eager))))
+
+(rule (alias shadowing_typedef_X1.eager.target)
+  (action
+    (diff ./shadowing_typedef_X1.eager.exp ./shadowing_typedef_X1.eager.out)))
+
+(rule (target ./shallow_prim_types_T03.lazy.out)
+  (deps ./shallow_prim_types_T03.fw)
+  (action
+    (with-stdout-to ./shallow_prim_types_T03.lazy.out
+      (run ../../src/main.exe ./shallow_prim_types_T03.fw --lazy))))
+
+(rule (alias shallow_prim_types_T03.lazy.target)
+  (action
+    (diff ./shallow_prim_types_T03.lazy.exp
+      ./shallow_prim_types_T03.lazy.out)))
+
+(rule (target ./shallow_prim_types_T03.eager.out)
+  (deps ./shallow_prim_types_T03.fw)
+  (action
+    (with-stdout-to ./shallow_prim_types_T03.eager.out
+      (run ../../src/main.exe ./shallow_prim_types_T03.fw --eager))))
+
+(rule (alias shallow_prim_types_T03.eager.target)
+  (action
+    (diff ./shallow_prim_types_T03.eager.exp
+      ./shallow_prim_types_T03.eager.out)))
+
+(rule (target ./shallowing_T01.lazy.out) (deps ./shallowing_T01.fw)
+  (action
+    (with-stdout-to ./shallowing_T01.lazy.out
+      (run ../../src/main.exe ./shallowing_T01.fw --lazy))))
+
+(rule (alias shallowing_T01.lazy.target)
+  (action (diff ./shallowing_T01.lazy.exp ./shallowing_T01.lazy.out)))
+
+(rule (target ./shallowing_T01.eager.out) (deps ./shallowing_T01.fw)
+  (action
+    (with-stdout-to ./shallowing_T01.eager.out
+      (run ../../src/main.exe ./shallowing_T01.fw --eager))))
+
+(rule (alias shallowing_T01.eager.target)
+  (action (diff ./shallowing_T01.eager.exp ./shallowing_T01.eager.out)))
+
+(rule (target ./shallowing_T03.lazy.out) (deps ./shallowing_T03.fw)
+  (action
+    (with-stdout-to ./shallowing_T03.lazy.out
+      (run ../../src/main.exe ./shallowing_T03.fw --lazy))))
+
+(rule (alias shallowing_T03.lazy.target)
+  (action (diff ./shallowing_T03.lazy.exp ./shallowing_T03.lazy.out)))
+
+(rule (target ./shallowing_T03.eager.out) (deps ./shallowing_T03.fw)
+  (action
+    (with-stdout-to ./shallowing_T03.eager.out
+      (run ../../src/main.exe ./shallowing_T03.fw --eager))))
+
+(rule (alias shallowing_T03.eager.target)
+  (action (diff ./shallowing_T03.eager.exp ./shallowing_T03.eager.out)))
+
+(rule (target ./shift45.lazy.out) (deps ./shift45.fw)
+  (action
+    (with-stdout-to ./shift45.lazy.out
+      (run ../../src/main.exe ./shift45.fw --lazy))))
+
+(rule (alias shift45.lazy.target)
+  (action (diff ./shift45.lazy.exp ./shift45.lazy.out)))
+
+(rule (target ./shift45.eager.out) (deps ./shift45.fw)
+  (action
+    (with-stdout-to ./shift45.eager.out
+      (run ../../src/main.exe ./shift45.fw --eager))))
+
+(rule (alias shift45.eager.target)
+  (action (diff ./shift45.eager.exp ./shift45.eager.out)))
+
+(rule (target ./syntax_T3.lazy.out) (deps ./syntax_T3.fw)
+  (action
+    (with-stdout-to ./syntax_T3.lazy.out
+      (run ../../src/main.exe ./syntax_T3.fw --lazy))))
+
+(rule (alias syntax_T3.lazy.target)
+  (action (diff ./syntax_T3.lazy.exp ./syntax_T3.lazy.out)))
+
+(rule (target ./syntax_T3.eager.out) (deps ./syntax_T3.fw)
+  (action
+    (with-stdout-to ./syntax_T3.eager.out
+      (run ../../src/main.exe ./syntax_T3.fw --eager))))
+
+(rule (alias syntax_T3.eager.target)
+  (action (diff ./syntax_T3.eager.exp ./syntax_T3.eager.out)))
+
+(alias (name runtest)
+  (deps
+    (alias check_leq_expand_T4.lazy.target)
+    (alias check_leq_expand_T4.eager.target)
+    (alias church_bool_T1.lazy.target)
+    (alias church_bool_T1.eager.target)
+    (alias church_bool_T2.lazy.target)
+    (alias church_bool_T2.eager.target)
+    (alias church_exists_ho_T3.lazy.target)
+    (alias church_exists_ho_T3.eager.target)
+    (alias church_exists_ho_test_T3.lazy.target)
+    (alias church_exists_ho_test_T3.eager.target)
+    (alias church_sum_T3.lazy.target)
+    (alias church_sum_T3.eager.target)
+    (alias core_sf_T1.lazy.target)
+    (alias core_sf_T1.eager.target)
+    (alias escaping_lam_T4.lazy.target)
+    (alias escaping_lam_T4.eager.target)
+    (alias exist_int_or_bool_T2.lazy.target)
+    (alias exist_int_or_bool_T2.eager.target)
+    (alias exists_basic_T2.lazy.target)
+    (alias exists_basic_T2.eager.target)
+    (alias exp_let_rec_annot_X3.lazy.target)
+    (alias exp_let_rec_annot_X3.eager.target)
+    (alias expand_order_T4.lazy.target)
+    (alias expand_order_T4.eager.target)
+    (alias fact_T1.lazy.target)
+    (alias fact_T1.eager.target)
+    (alias fail_check_leq_expand_T4.lazy.target)
+    (alias fail_check_leq_expand_T4.eager.target)
+    (alias fail_escaping_lam_T4.lazy.target)
+    (alias fail_escaping_lam_T4.eager.target)
+    (alias fail_exist_T2.lazy.target)
+    (alias fail_exist_T2.eager.target)
+    (alias fail_fact_T1.lazy.target)
+    (alias fail_fact_T1.eager.target)
+    (alias fail_map_pair_T3.lazy.target)
+    (alias fail_map_pair_T3.eager.target)
+    (alias fail_record_T1.lazy.target)
+    (alias fail_record_T1.eager.target)
+    (alias fail_record_access_T1.lazy.target)
+    (alias fail_record_access_T1.eager.target)
+    (alias fail_unbound_evar_T1.lazy.target)
+    (alias fail_unbound_evar_T1.eager.target)
+    (alias fail_unbound_tvar_T1.lazy.target)
+    (alias fail_unbound_tvar_T1.eager.target)
+    (alias fail_unbound_tvar_T3.lazy.target)
+    (alias fail_unbound_tvar_T3.eager.target)
+    (alias hello.lazy.target)
+    (alias hello.eager.target)
+    (alias identity1.lazy.target)
+    (alias identity1.eager.target)
+    (alias lazy_keep_def_T4.lazy.target)
+    (alias lazy_keep_def_T4.eager.target)
+    (alias list_T3.lazy.target)
+    (alias list_T3.eager.target)
+    (alias map_pair_T3.lazy.target)
+    (alias map_pair_T3.eager.target)
+    (alias nat_pack_unpack_T3.lazy.target)
+    (alias nat_pack_unpack_T3.eager.target)
+    (alias prelude.lazy.target)
+    (alias prelude.eager.target)
+    (alias prim_sum_T3.lazy.target)
+    (alias prim_sum_T3.eager.target)
+    (alias records_T1.lazy.target)
+    (alias records_T1.eager.target)
+    (alias rectypes_T3.lazy.target)
+    (alias rectypes_T3.eager.target)
+    (alias reduce_T4.lazy.target)
+    (alias reduce_T4.eager.target)
+    (alias shadowing_core_X1.lazy.target)
+    (alias shadowing_core_X1.eager.target)
+    (alias shadowing_typedef_X1.lazy.target)
+    (alias shadowing_typedef_X1.eager.target)
+    (alias shallow_prim_types_T03.lazy.target)
+    (alias shallow_prim_types_T03.eager.target)
+    (alias shallowing_T01.lazy.target)
+    (alias shallowing_T01.eager.target)
+    (alias shallowing_T03.lazy.target)
+    (alias shallowing_T03.eager.target)
+    (alias shift45.lazy.target)
+    (alias shift45.eager.target)
+    (alias syntax_T3.lazy.target)
+    (alias syntax_T3.eager.target)))
+

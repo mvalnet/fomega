@@ -1,0 +1,8 @@
+#include "church_exists_ho_T3.fw"
+#include "nat_pack_unpack_T3.fw"
+
+(** This check the useexample *)
+
+let nat_as_church =
+  pack [fun t => { zero : t; succ : t -> t; fold : t -> Nat; }]
+    [Nat] nat_church

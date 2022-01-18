@@ -1,0 +1,5 @@
+File "./fail_exist_T2.fw", line 6, characters 8-37:
+
+Typing error: out of scope variable  a
+in actual type:   (a -> int) * a
+Expected failure is ok!

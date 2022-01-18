@@ -1,0 +1,2 @@
+val x : exi a. (a -> int) * a
+val y : int

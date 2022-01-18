@@ -1,0 +1,3 @@
+let ab : { a : int; b : unit }  = { a = 1; b = () }
+let ba : { b : unit; a : int }  = { a = 1; b = () }
+let c = ab.a

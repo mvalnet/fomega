@@ -1,0 +1,6 @@
+(** This example should succeed after expanding the definition *)
+
+type foo = int
+let f (x : foo) : int = x
+
+

@@ -1,0 +1,4 @@
+type sum :: Type -> Type -> Type
+val Left : all A. all B. A -> sum A B
+val Right : all A. all B. B -> sum A B
+val case_AB : all A. all B. all C. sum A B -> (A -> C) -> (B -> C) -> C

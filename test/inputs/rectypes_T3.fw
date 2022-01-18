@@ -1,0 +1,4 @@
+ (** Recursive types *)
+type fix :: (Type -> Type) -> Type
+let fold   = magic [all (F :: Type -> Type). F (fix F) -> fix F]
+let unfold = magic [all (F :: Type -> Type). fix F -> F (fix F)]

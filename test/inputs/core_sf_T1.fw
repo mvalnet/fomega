@@ -1,0 +1,6 @@
+(** Examples in F *)
+
+let id [A] (x : A) = x
+let compose [A] [B] [C] (f : B -> C) (g : A -> B) (x : A) = f (g x)
+let app [A] [B] (f : A -> B) (x : A) = f x
+let if [A] (b : bool) (x:A) (y:A) = x 

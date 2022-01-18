@@ -1,0 +1,4 @@
+File "./fail_unbound_tvar_T3.fw", line 3, characters 7-10:
+
+Unbound type variable:  a
+Expected failure is ok!
