@@ -2,6 +2,7 @@
    whose purpose is to disable several warnings. *)
 [@@@warning "-27-32-33-37-39-60"]
 open Util
+open List
 open Syntax
 open Type
 open Error
@@ -16,7 +17,7 @@ open Error
 
    For type variables, we actually need two maps: [svar] maps source type
    variables (which may be shadowed) to internal type variables while [cvar]
-   maps internal type variables (whih are never shadowed) to their kind or
+   maps internal type variables (which are never shadowed) to their kind or
    definition.
 
    You may need to add another map in type [env] for Task 4.  *)
@@ -57,10 +58,21 @@ let add_svar env s a = { env with svar = Senv.add s a env.svar }
 (** Assuming source type variables never end with an integer, a simple correct 
     implementation of [fresh_id_for] *)
 let fresh_id_for_T1 env _a =
-  env, fresh_id() 
+  env, fresh_id ()
+
+(** Assuming source type variables never end with an integer, a simple and more
+    readable correct implementation of [fresh_id_for] *)
+let fresh_id_for_T2 env _a =
+  let id = 
+    try
+      (find_svar env _a).id + 1
+    with
+      | Not_found -> 0
+  in
+  add_svar env _a { name = _a ; id ; def = None }, id
 
 let fresh_id_for =
-     fresh_id_for_T1
+     fresh_id_for_T2
 
 (** [get_svar env a] is a wrapper around [find_evar env a] that turns a
    [Not_found] exception into a non-localized [Unbound] typing-error
