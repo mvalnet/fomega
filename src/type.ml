@@ -18,7 +18,7 @@ module Tenv = Map.Make (struct
    normalization. When done, we may rename types to minimize the numeric
    suffixes of type variables.  *)
 
-(** We mainting for each name, the highest suffix appearing in scope *)
+(** We maintain for each name, the highest suffix appearing in scope *)
 module Senv = Map.Make (struct
     type t = string
     let compare = String.compare
@@ -31,7 +31,11 @@ let apply su a = apply_with_default a su a
 
 (** Kind equality *)
 let rec eq_kind k1 k2 =
-     true
+  match k1, k2 with
+    | Ktyp, Ktyp -> true
+    | Karr(k1_1, k1_2), Karr(k2_1, k2_2) ->
+      eq_kind k1_1 k2_1 && eq_kind k1_2 k2_2
+    | _ -> false
 
 (** Type substitution as opposed to renaming *)
 let rec subst su (t : ctyp) : ctyp =
