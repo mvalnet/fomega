@@ -24,10 +24,11 @@ module Senv = Map.Make (struct
     let compare = String.compare
   end)
 
-let apply_with_default t su a =
+let apply_with_default t su a : ctyp =
   try Tenv.find a su with Not_found -> t
 
-let apply su a = apply_with_default a su a
+let apply (su : ctyp Tenv.t) (a : cvar) =
+  apply_with_default (Tvar a) su a
 
 (** Kind equality *)
 let rec eq_kind k1 k2 =
@@ -38,9 +39,9 @@ let rec eq_kind k1 k2 =
     | _ -> false
 
 (** Type substitution as opposed to renaming *)
-let rec subst su (t : ctyp) : ctyp =
+let rec subst (su :ctyp Tenv.t) (t : ctyp) : ctyp =
   match t with
-    | Tvar(v) -> Tvar(apply su v)
+    | Tvar(v) -> apply su v
     | Tprim(_) -> t
     | Tapp(t1, t2) -> Tapp(subst su t1, subst su t2)
     | Tarr(t1, t2) -> Tarr(subst su t1, subst su t2)
@@ -62,8 +63,9 @@ let rec subst su (t : ctyp) : ctyp =
       Tbind(b, x, k, subst su t)
 
     
-let subst_typ a ta t =
-     t (* fix me *)
+let subst_typ (a : Tenv.key) (ta : ctyp) t =
+  let su = Tenv.singleton a ta in
+    subst su t
 
 (** Type normalization *)
 let eager =
