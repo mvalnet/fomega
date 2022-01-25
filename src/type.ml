@@ -39,8 +39,29 @@ let rec eq_kind k1 k2 =
 
 (** Type substitution as opposed to renaming *)
 let rec subst su (t : ctyp) : ctyp =
-     t (* fix me *)
+  match t with
+    | Tvar(v) -> Tvar(apply su v)
+    | Tprim(_) -> t
+    | Tapp(t1, t2) -> Tapp(subst su t1, subst su t2)
+    | Tarr(t1, t2) -> Tarr(subst su t1, subst su t2)
+    | Tprod(typ_list) ->
+      Tprod(
+        List.fold_left
+          (fun l t -> (subst su t)::l )
+          []
+          typ_list
+      )
+    | Trcd(ltyp_list) ->
+      Trcd(
+        List.fold_left
+          (fun l (lab,t) -> (lab, subst su t)::l )
+          []
+          ltyp_list
+      )
+    | Tbind(b, x, k, t) ->
+      Tbind(b, x, k, subst su t)
 
+    
 let subst_typ a ta t =
      t (* fix me *)
 
