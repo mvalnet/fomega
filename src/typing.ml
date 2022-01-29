@@ -210,6 +210,10 @@ let (!@) = Locations.with_loc
 let (!@-) = Locations.dummy_located
 
 let infer_kind env ctyp = default_kind
+  (*match ctyp with 
+  | Tvar(cvar) -> find_cvar env cvar
+  | Tprim(_) -> default_kind
+  | Tarr(k1, k2) -> Karr(infer_kind env k1, infer_kind env k2)*)
 
 let make_cvar name id def =
   { name ; id ; def}
@@ -284,12 +288,22 @@ let rec type_exp env exp : ctyp =
         []
         labexp_list
     )
-  
+  | Elab(exp, lab) -> 
+    (match type_exp env exp with
+      | Trcd(labexp_list) ->
+        (try
+          snd (List.find (fun (lab_i,_) -> lab_i = lab ) labexp_list)
+        with
+        | Not_found -> failwith "Ill typed")
+      | _ -> failwith "Ill typed")
+
   | Efun(binding_list, exp) ->
     cross_binding env exp binding_list
+  | Eappl(_) -> failwith "SystemF"
+  | Elet(_) -> failwith "SystemF"
+
   | Epack(_)
   | Eopen(_) -> failwith "not implemented"
-  | _ -> failwith "not implemented"
 
 and cross_binding env expr = function
   | [] -> type_exp env expr
