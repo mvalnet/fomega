@@ -30,7 +30,7 @@ val norm : ctyp -> ctyp
 (** [norm t] returns a type equivalent to [t] but in normal form. *)
 
 val eq_typ : ctyp -> ctyp -> bool
-(** [eq_typ t1 t2] just checks where [t1] and [t2] are equal. It has no
+(** [eq_typ t1 t2] just checks whether [t1] and [t2] are equal. It has no
    visible side effect. *)
   
 val diff_typ : ctyp -> ctyp -> (ctyp * ctyp) option

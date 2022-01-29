@@ -46,12 +46,12 @@ let rec subst (su :ctyp Tenv.t) (t : ctyp) : ctyp =
     | Tapp(t1, t2) -> Tapp(subst su t1, subst su t2)
     | Tarr(t1, t2) -> Tarr(subst su t1, subst su t2)
     | Tprod(typ_list) ->
-      Tprod(
+      (Tprod(
         List.fold_left
           (fun l t -> (subst su t)::l )
           []
           typ_list
-      )
+      ) : ctyp)
     | Trcd(ltyp_list) ->
       Trcd(
         List.fold_left

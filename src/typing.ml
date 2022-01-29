@@ -90,9 +90,9 @@ let get_evar exp env x =
 (** 2. Type minimization *)
 
 (** Type checking must perform computation on types when checking for
-   convertibilty.  This requires appropriate renamaing to avaid capture,
+   convertibilty.  This requires appropriate renaming to avoid capture,
    hence generating many fresh variables, which may then disappear during
-   reduction.  The resulting type may thefore use large integer suffixes,
+   reduction. The resulting type may thefore use large integer suffixes,
    which are unpleasant for the user to read.
 
    For this reason, we minimize variable names after typechecking each
@@ -102,22 +102,81 @@ let get_evar exp env x =
    after computation.
 
    (We could use this to further optimize maps, using just some additional
-   [uid] integer field for identificatiion instead of the pair [name] nad [id].)
+   [uid] integer field for identificatiion instead of the pair [name] and [id].)
 *)
+
+let min_excluded (env,loc_env) cvar =
+  let _ = find_cvar env cvar in
+  let min_excluded_list id_list =
+    let n = List.length id_list in
+    let id_tab = Array.make n 0 in
+    List.iter (fun x -> if x < n then id_tab.(x) <- 1) id_list ;
+    let i = ref 0 in
+    while (!i < n && id_tab.(!i) = 0) do
+      incr i
+    done ;
+    !i
+  in
+  let id_list =
+    Tenv.fold 
+      (fun cvar_key _ ind_list ->
+        if cvar_key.name = cvar.name then (cvar.id) :: ind_list
+        else ind_list
+      )
+      env.cvar
+      []
+  in
+  let mex = min_excluded_list id_list in
+  { name = cvar.name ; id = mex ; def = cvar.def }
+
+let minimize_env env = env
 
 
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
-let rec minimize_typ env t =
-  t (* fix me *)
+let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
+  let env = (global_env, map_to_new_name) in
+  match t with
+    | Tvar(cv) -> Tvar(Tenv.find cv map_to_new_name)
+    | Tprim(_) -> t
+    | Tapp(t1, t2) -> 
+      Tapp(
+        aux_minimize_typ env t1,
+        aux_minimize_typ env t2
+      )
+    | Tarr(t1, t2) ->
+      Tarr(
+        aux_minimize_typ env t1,
+        aux_minimize_typ env t2
+      )
+    | Tprod (ctyp_l) -> 
+      Tprod(
+        List.fold_left
+          (fun l t -> (aux_minimize_typ env t) :: l)
+          []
+          ctyp_l
+      )
+    | Trcd(rcd_l) ->
+      Trcd(
+        List.fold_left
+          (fun l (lab, t) -> (lab, aux_minimize_typ env t) :: l)
+          []
+          rcd_l
+      )
+    | Tbind(binder, binded_cvar, kind , t) ->
+      let min_binded = min_excluded (global_env, map_to_new_name) binded_cvar in
+      let new_map = Tenv.add binded_cvar min_binded map_to_new_name in
+      Tbind(binder, min_binded , kind, aux_minimize_typ (global_env,new_map) t)
+
 
 (** [do_minimize] tells whether types should be minimized. It defaults to
    [true] and may be changed with the `--rawtypes` command line option, *)
 let do_minimize = spec_true "--rawtypes"  "Do not minimize types"
 
 let minimize_typ env t =
-  if !do_minimize then minimize_typ (env, Tenv.empty) t else t
+  let min_env = minimize_env env in
+  if !do_minimize then aux_minimize_typ (min_env, Tenv.empty) t else t
 
 (** [type_typ env t] typechecks source type [t] returning its kind [k] and
    an internal representation of [t].  This may non-localized (Unbound and
@@ -150,24 +209,124 @@ let rec wf_ctyp env t : ctyp =
 let (!@) = Locations.with_loc  
 let (!@-) = Locations.dummy_located
 
+let infer_kind env ctyp = default_kind
+
+let make_cvar name id def =
+  { name ; id ; def}
+
+let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
+  match scar with
+  | Tvar(v) -> env, Tvar(Senv.find v env.svar)
+  | Tprim(x) -> env, Tprim(x)
+  | Tapp(s1, s2) | Tarr(s1, s2) ->
+    let env1, c1 = svar_to_cvar env s1 in
+    let env2, c2 = svar_to_cvar env1 s2 in
+    env2, Tapp(c1, c2)
+  | Tprod(s_list) ->
+    let nenv, c_list = 
+      List.fold_left
+        (fun (env, l) s ->
+          let nenv, c = (svar_to_cvar env s) in
+          nenv, c :: l
+        )
+        (env, [])
+        s_list
+    in 
+    nenv, Tprod(c_list)
+  | Trcd(labs_list) ->
+    let nenv, labc_list =
+      List.fold_left
+        (fun (env,l) (lab,s) ->
+          let nenv, c = (svar_to_cvar env s) in
+          nenv, (lab, c) :: l
+        )
+        (env, [])
+        labs_list
+    in 
+    nenv, Trcd(labc_list)
+  | Tbind(b, var, kind, s_typ) ->
+    let nenv, id = fresh_id_for env var in
+    let cvar = {name = var ; id ; def = None } in
+    let nenv, c_typ = svar_to_cvar nenv s_typ in
+    nenv, Tbind(b, cvar, kind, c_typ )
+
 let rec type_exp env exp : ctyp =
   match exp.obj with 
   | Evar x -> get_evar exp env x
   | Eprim (Int _) -> Tprim Tint
   | Eprim (Bool _) -> Tprim Tbool
   | Eprim (String _) -> Tprim Tstring
-
+  | Eannot(exp, styp_loc) ->
+    let t_expr = type_exp env exp in
+    let nenv, t_annot = svar_to_cvar env styp_loc.obj in
+   ( match diff_typ t_expr t_annot with
+    | None -> t_annot
+    | Some(_) ->  failwith "type error")
+  | Eprod(exp_list) ->
+    Tprod(
+      List.fold_left
+        (fun l exp -> 
+          (type_exp env exp) :: l
+        )
+        []
+        exp_list
+    )
+  | Eproj(exp, n) ->(
+    match type_exp env exp with
+      | Tprod(typ_list) -> List.nth typ_list n
+      | _ -> failwith "Ill typed")
+  | Ercd(labexp_list) ->
+    Trcd(
+      List.fold_left
+        (fun l (lab,exp) -> 
+          (lab, type_exp env exp) :: l
+        )
+        []
+        labexp_list
+    )
+  
+  | Efun(binding_list, exp) ->
+    cross_binding env exp binding_list
+  | Epack(_)
+  | Eopen(_) -> failwith "not implemented"
   | _ -> failwith "not implemented"
 
+and cross_binding env expr = function
+  | [] -> type_exp env expr
+  | (Typ(svar,kind)) :: q ->
+    let nenv, id_svar = fresh_id_for env svar in 
+    let cvar = make_cvar svar id_svar None in
+    Tbind(Tlam, cvar, kind, cross_binding nenv expr q)
+  | Exp(pat) :: q -> (
+    match pat.obj with
+    | Ptyp(pat, styp_loc) -> 
+      (match pat.obj with 
+        | Pvar(evar) ->
+          let tp_evar = "temporary" in
+          let nenv, id_svar = fresh_id_for env tp_evar in
+          let cvar = make_cvar tp_evar id_svar None in
+          let nenv = add_svar nenv tp_evar cvar in
+          let nenv, ctyp = svar_to_cvar nenv (styp_loc.obj) in
+          let nenv = add_evar nenv evar ctyp in
+          Tbind(Tlam, cvar, infer_kind env ctyp, cross_binding nenv expr q)
+        | _ -> failwith "Not implemented")
+    | Pvar(evar) ->  failwith "Missing annotation"
+    | Pprod(pat_list) -> failwith "Not implemented"
+    | Pprim(prim_val) -> failwith "Not implemented"
+  )
 
 let norm_when_eager =
-  spec_true "--loose"  "Do not force toplevel normaliization in eager mode"
+  spec_true "--loose"  "Do not force toplevel normalization in eager mode"
 
-let type_decl env d =
+let type_decl env (d :decl) = 
+  match d.obj with
+    | Dtyp(_)
+    | Dlet(_)
+    | Dopen(_) ->
      failwith "Not implemented"
 
   
-let type_program env p : env * typed_decl list =
+let type_program env (p : program) : env * typed_decl list =
   List.fold_left_map type_decl env p
 
 
