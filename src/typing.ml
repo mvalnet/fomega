@@ -183,20 +183,50 @@ let minimize_typ env t =
    Kinding) typing error exceptions. *)
 let rec type_typ env (t : styp) : kind * ctyp =
   match t with
-  | Tprim  c -> 
+  | Tprim c -> 
      Ktyp, Tprim c
-  | _ -> failwith "not implemented" 
+  | Tvar(svar) ->
+    let cvar = get_svar env svar in
+    let kind = find_cvar env cvar in 
+    kind, Tvar(cvar)
+  | Tapp(styp1, styp2) ->
+    let kind1, ctyp1 = type_typ env styp1 in
+    let kind2, ctyp2 = type_typ env styp2 in
+    Karr(kind1, kind2), Tapp(ctyp1, ctyp2)
+  | Tarr(styp1, styp2) -> 
+    let kind1, ctyp1 = type_typ env styp1 in
+    let kind2, ctyp2 = type_typ env styp2 in
+    (match kind1 with
+    | Ktyp -> raise (
+      Typing (
+        None,
+        Kinding(t,kind1,Matching(Sarr))
+      )
+    )
+    | Karr(k_arg, k_ret) ->
+      if eq_kind k_arg kind2 then
+        k_ret, Tapp(ctyp1, ctyp2)
+      else raise (
+        Typing(
+          None,
+          Kinding(t, k_arg, Nonequal(kind2))
+        )
+      )
+    )
+  | Tprod(_)
+  | Trcd(_)
+  | Tbind(_) -> failwith "not implemented" 
 
-(** Checking that lovcal variable do not escape.  Typechecking of
+(** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
-   from their scope.  This amounts to verifying that the returned type is
-   well-formed.  It suffices to check that all variables are bound in the
+   from their scope. This amounts to verifying that the returned type is
+   well-formed. It suffices to check that all variables are bound in the
    given environment.
 
    One must be careful of non linear redexes and delayed definitions.
    Therefore, we must not only check for well-formedness, but return an
-   equivalent type that is well-formed.  This should just perform the
-   necessary unfoldings and reductions.  *)
+   equivalent type that is well-formed. This should just perform the
+   necessary unfoldings and reductions. *)
 exception Escape of cvar
 let rec wf_ctyp env t : ctyp =
   match t with
