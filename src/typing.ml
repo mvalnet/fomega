@@ -303,7 +303,15 @@ let rec type_exp env exp : ctyp =
     let nenv, t_annot = styp_to_ctyp env styp_loc in
    ( match diff_typ t_expr t_annot with
     | None -> t_annot
-    | Some(_) ->  failwith "type error")
+    | Some(subt_expr, subt_annot) -> raise (
+      Typing(
+        Some styp_loc.loc,
+        Expected(
+          t_expr,
+          Showdiff(t_annot,subt_expr, subt_annot))
+        )
+      )
+    )
   | Eprod(exp_list) ->
     Tprod(
       List.fold_left
