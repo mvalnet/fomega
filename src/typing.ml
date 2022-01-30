@@ -241,13 +241,24 @@ let rec type_typ env (t : styp) : kind * ctyp =
         (fun l styp -> 
           match type_typ env styp with
           | Ktyp, ctyp -> ctyp :: l
-          | kind, _ -> raise (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
+          | kind, _ -> raise (
+            Typing(None, Kinding(styp, kind, Nonequal (Ktyp)))
+          )
         )
         []
         styp_list
     in 
     Ktyp, Tprod(ctyp_list)
-  | Trcd(_) -> failwith "not implemented" 
+  | Trcd(labstyp_list) -> 
+    Ktyp, (* I suppose? *)
+    Trcd(
+      List.fold_left
+      (fun l (lab,s) ->
+      (lab, snd (type_typ env s)) :: l
+      )
+      []
+      labstyp_list
+    )
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
