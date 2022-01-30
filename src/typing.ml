@@ -260,6 +260,7 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
 let styp_to_ctyp env styp =
   within_loc (within_typ (svar_to_cvar env)) styp
   
+let complex_pattern pat = (Typing(Some pat.loc, NotImplemented "Complex Pattern"))
 
 let is_pvar x = 
   match x.obj with
@@ -271,7 +272,7 @@ let rec find_binded_var pat =
   match pat.obj with
   | Pvar(evar) -> evar
   | Ptyp(pat, _) -> find_binded_var pat
-  | _ -> failwith "Not implemented"
+  | _ -> raise (complex_pattern pat)
 
 let find_binded_type env pat exp =
   match pat.obj with
@@ -287,9 +288,9 @@ let find_binded_type env pat exp =
       | Pvar(evar) -> 
         let nenv, typ = styp_to_ctyp env styp_loc in
         add_evar nenv evar typ, typ
-      | _ -> failwith "Complex Pattern Not Implemented"
+      | _ -> raise (complex_pattern pat)
   )
- | _ -> failwith "Complex Pattern Not Implemented"
+ | _ -> raise (complex_pattern pat)
 
 
 let rec type_exp env exp : ctyp =
