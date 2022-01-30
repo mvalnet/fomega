@@ -345,7 +345,11 @@ let rec type_exp env exp : ctyp =
   ( match type_exp env exp with
     | Trcd(labexp_list) as ctyp ->  (
         try
-          snd (List.find (fun (lab_i,_) -> lab_i = lab ) labexp_list)
+          snd 
+            (List.find 
+              (fun (lab_i,_) -> lab_i = lab )
+              labexp_list
+            )
         with 
           | Not_found -> raise (
           Typing(
@@ -436,26 +440,41 @@ let norm_when_eager =
 
 let type_decl env (d :decl) : env * typed_decl = 
   match d.obj with
-    | Dtyp(_) -> raise (f_omega d.loc)
-    | Dlet(is_rec, pat, exp) ->
-      let binded_var = find_binded_var pat in 
-      if is_rec then
-        let nenv, binded_type = find_binded_type env pat exp.obj in
-        let ctyp = type_exp nenv exp in
-        (match diff_typ ctyp binded_type with 
-        | None -> nenv, Glet(binded_var,  type_exp nenv exp)
-        | Some(sub_ctyp, sub_binded_type) -> raise (
-          make_showdiff_error
-          exp.loc
-          ctyp binded_type
-          sub_ctyp sub_binded_type
-        )
+  | Dtyp(svar, toe) -> (
+    match toe with
+    | Exp(styp_loc) ->
+      let env, id = fresh_id_for env svar in
+      let nenv, ctyp = styp_to_ctyp env styp_loc in  
+      let def = { scope = 0 (* ??? *); typ = ctyp } in
+      let cvar = make_cvar svar id (Some def) in
+      let kind = infer_kind nenv ctyp in
+      let nenv = add_cvar nenv cvar kind in
+      nenv, Gtyp(cvar, Exp(kind, ctyp))
+
+    | Typ(k) ->
+      let env, id = fresh_id_for env svar in
+      let cvar = make_cvar svar id None in
+      env, Gtyp(cvar,Typ(k))
+  )
+  | Dlet(is_rec, pat, exp) ->
+    let binded_var = find_binded_var pat in 
+    if is_rec then
+      let nenv, binded_type = find_binded_type env pat exp.obj in
+      let ctyp = type_exp nenv exp in
+      (match diff_typ ctyp binded_type with 
+      | None -> nenv, Glet(binded_var,  type_exp nenv exp)
+      | Some(sub_ctyp, sub_binded_type) -> raise (
+        make_showdiff_error
+        exp.loc
+        ctyp binded_type
+        sub_ctyp sub_binded_type
       )
-      else 
-        let ctyp = type_exp env exp in 
-        (add_evar env binded_var ctyp), Glet(binded_var, ctyp)
+    )
+    else 
+      let ctyp = type_exp env exp in 
+      (add_evar env binded_var ctyp), Glet(binded_var, ctyp)
         
-    | Dopen(_) -> raise (f_omega d.loc)
+  | Dopen(_) -> raise (f_omega d.loc)
 
   
 let type_program env (p : program) : env * typed_decl list =
