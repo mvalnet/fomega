@@ -217,10 +217,13 @@ let infer_kind env ctyp = default_kind
 
 let make_cvar name id def =
   { name ; id ; def}
+let make_loc obj loc =
+  { obj ; loc}
 
 let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   match scar with
-  | Tvar(v) -> env, Tvar(Senv.find v env.svar)
+  | Tvar(v) ->
+   env, Tvar(find_svar env v)
   | Tprim(x) -> env, Tprim(x)
   | Tapp(s1, s2) | Tarr(s1, s2) ->
     let env1, c1 = svar_to_cvar env s1 in
@@ -230,7 +233,7 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     let nenv, c_list = 
       List.fold_left
         (fun (env, l) s ->
-          let nenv, c = (svar_to_cvar env s) in
+          let nenv, c = svar_to_cvar env s in
           nenv, c :: l
         )
         (env, [])
@@ -241,7 +244,7 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     let nenv, labc_list =
       List.fold_left
         (fun (env,l) (lab,s) ->
-          let nenv, c = (svar_to_cvar env s) in
+          let nenv, c = svar_to_cvar env s in
           nenv, (lab, c) :: l
         )
         (env, [])
@@ -254,6 +257,10 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     let nenv, c_typ = svar_to_cvar nenv s_typ in
     nenv, Tbind(b, cvar, kind, c_typ )
 
+let styp_to_ctyp env styp =
+  within_loc (within_typ (svar_to_cvar env)) styp
+  
+
 let is_pvar x = 
   match x.obj with
   | Pvar(_) -> true
@@ -264,14 +271,14 @@ let find_binded_type env pat exp =
   | Pvar(evar) -> (
     match exp with
     | Eannot(_, styp_loc) ->
-      let nenv, typ = svar_to_cvar env (styp_loc.obj) in
+      let nenv, typ = styp_to_ctyp env styp_loc in
       add_evar nenv evar typ, Some(typ)
     | _ -> env, None
   )
   | Ptyp(x, styp_loc) -> (
       match x.obj with 
       | Pvar(evar) -> 
-        let nenv, typ = svar_to_cvar env (styp_loc.obj) in
+        let nenv, typ = styp_to_ctyp env styp_loc in
         add_evar nenv evar typ, Some(typ)
       | _ -> failwith "Complex Pattern Not Implemented"
   )
@@ -286,7 +293,7 @@ let rec type_exp env exp : ctyp =
   | Eprim (String _) -> Tprim Tstring
   | Eannot(exp, styp_loc) ->
     let t_expr = type_exp env exp in
-    let nenv, t_annot = svar_to_cvar env styp_loc.obj in
+    let nenv, t_annot = styp_to_ctyp env styp_loc in
    ( match diff_typ t_expr t_annot with
     | None -> t_annot
     | Some(_) ->  failwith "type error")
