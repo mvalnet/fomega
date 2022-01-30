@@ -209,16 +209,14 @@ let rec wf_ctyp env t : ctyp =
 let (!@) = Locations.with_loc  
 let (!@-) = Locations.dummy_located
 
-let infer_kind env ctyp = default_kind
-  (*match ctyp with 
-  | Tvar(cvar) -> find_cvar env cvar
-  | Tprim(_) -> default_kind
-  | Tarr(k1, k2) -> Karr(infer_kind env k1, infer_kind env k2)*)
-
 let make_cvar name id def =
   { name ; id ; def}
 let make_loc obj loc =
   { obj ; loc}
+
+let typorexp_loc = function
+  | Exp(e) -> e.loc
+  | Typ(styp_loc) -> styp_loc.loc
 
 let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   match scar with
@@ -261,6 +259,13 @@ let styp_to_ctyp env styp =
   within_loc (within_typ (svar_to_cvar env)) styp
   
 let complex_pattern pat = (Typing(Some pat.loc, NotImplemented "Complex Pattern"))
+let f_omega loc = (Typing(Some loc, NotImplemented "F_Omega"))
+
+let infer_kind _ _ = default_kind
+
+let make_showdiff_error loc cur exp sub_cur sub_exp =
+  Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
+
 
 let is_pvar x = 
   match x.obj with
@@ -305,12 +310,7 @@ let rec type_exp env exp : ctyp =
    ( match diff_typ t_expr t_annot with
     | None -> t_annot
     | Some(subt_expr, subt_annot) -> raise (
-      Typing(
-        Some styp_loc.loc,
-        Expected(
-          t_expr,
-          Showdiff(t_annot,subt_expr, subt_annot))
-        )
+      make_showdiff_error exp.loc t_annot t_expr subt_annot subt_expr
       )
     )
   | Eprod(exp_list) ->
@@ -322,10 +322,16 @@ let rec type_exp env exp : ctyp =
         []
         exp_list
     )
-  | Eproj(exp, n) ->(
+  | Eproj(exp, n) -> (
     match type_exp env exp with
       | Tprod(typ_list) -> List.nth typ_list n
-      | _ -> failwith "Ill typed")
+      | ctyp -> raise (
+        Typing(
+          Some exp.loc,
+          Expected(ctyp,Matching(Sprod (Some n)))
+        )
+      )
+  )
   | Ercd(labexp_list) ->
     Trcd(
       List.fold_left
@@ -336,13 +342,25 @@ let rec type_exp env exp : ctyp =
         labexp_list
     )
   | Elab(exp, lab) -> 
-    (match type_exp env exp with
-      | Trcd(labexp_list) ->
-        (try
+  ( match type_exp env exp with
+    | Trcd(labexp_list) as ctyp ->  (
+        try
           snd (List.find (fun (lab_i,_) -> lab_i = lab ) labexp_list)
-        with
-        | Not_found -> failwith "Ill typed")
-      | _ -> failwith "Ill typed")
+        with 
+          | Not_found -> raise (
+          Typing(
+            Some exp.loc,
+            Expected(ctyp, Matching(Srcd (Some lab) ))
+          )
+      )
+    )
+    | ctyp -> raise (
+      Typing(
+        Some exp.loc,
+        Expected(ctyp, Matching(Srcd (Some lab) ))
+      )
+    )
+  )
 
   | Efun(binding_list, exp) ->
     cross_binding env exp binding_list
@@ -353,9 +371,14 @@ let rec type_exp env exp : ctyp =
     if is_rec then 
       let nenv, binded_type = find_binded_type env pat exp1.obj in
       let t_expr1 = type_exp nenv exp1 in
-      (match diff_typ binded_type t_expr1 with 
+      (match diff_typ t_expr1 binded_type with 
       | None -> type_exp nenv exp2
-      | Some(_) -> failwith "Ill Typed") 
+      | Some(subt_expr1, sub_binded_type) -> raise (
+        make_showdiff_error
+          exp.loc 
+          t_expr1 binded_type
+          subt_expr1 sub_binded_type
+      )) 
     else 
       let binded_var = find_binded_var pat in
       let t_expr1 = type_exp env exp1 in 
@@ -363,7 +386,7 @@ let rec type_exp env exp : ctyp =
       type_exp nenv exp2
 
   | Epack(_)
-  | Eopen(_) -> failwith "not implemented"
+  | Eopen(_) -> raise (f_omega exp.loc)
 
 and apply_arg env t_expr arg_list =
   match t_expr, arg_list with
@@ -371,14 +394,18 @@ and apply_arg env t_expr arg_list =
     match arg1 with
     | Exp(arg1) -> 
       let t_arg1 = type_exp env arg1 in 
-      (match diff_typ t1 t_arg1 with
+      (match diff_typ t_arg1 t1 with
       | None -> apply_arg env t2 arg_list
-      | Some(_) -> failwith "Ill typed"
+      | Some(subt_arg1, sub_t1) -> raise (
+        make_showdiff_error arg1.loc t_arg1 t1 subt_arg1 sub_t1
+        )
       )
-    | Typ(_) -> failwith "Not Implemented"
+    | Typ(styp_loc) -> raise (f_omega styp_loc.loc)
   ) 
   | _, [] -> t_expr
-  | _, t::q -> failwith "Too much argument (or cannot be applied)"
+  | ctyp, t::q -> raise (
+    Typing(Some (typorexp_loc t), Expected(ctyp, Matching(Sarr)))
+  )
 
 and cross_binding env expr = function
   | [] -> type_exp env expr
@@ -398,10 +425,9 @@ and cross_binding env expr = function
           let nenv, ctyp = svar_to_cvar nenv (styp_loc.obj) in
           let nenv = add_evar nenv evar ctyp in
           Tbind(Tlam, cvar, infer_kind env ctyp, cross_binding nenv expr q)
-        | _ -> failwith "Not implemented")
+        | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
-    | Pprod(pat_list) -> failwith "Not implemented"
-    | Pprim(prim_val) -> failwith "Not implemented"
+    | _ -> raise (complex_pattern pat)
   )
 
 let norm_when_eager =
