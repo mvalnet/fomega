@@ -87,6 +87,14 @@ let get_evar exp env x =
   try find_evar env x
   with Not_found -> error exp (Unbound (Exp x))
 
+let make_cvar name id def =
+  { name ; id ; def}
+let make_loc obj loc =
+  { obj ; loc}
+
+let complex_pattern pat = (Typing(Some pat.loc, NotImplemented "Complex Pattern"))
+let f_omega loc = (Typing(Some loc, NotImplemented "F_Omega"))
+
 (** 2. Type minimization *)
 
 (** Type checking must perform computation on types when checking for
@@ -213,9 +221,33 @@ let rec type_typ env (t : styp) : kind * ctyp =
         )
       )
     )
-  | Tprod(_)
-  | Trcd(_)
-  | Tbind(_) -> failwith "not implemented" 
+  | Tbind(binder, svar, kind, styp) ->
+    let nenv, id = fresh_id_for env svar in 
+    let cvar = make_cvar svar id None in 
+    let nenv = add_cvar nenv cvar kind in
+    let kind_body, cbody = type_typ nenv styp in
+    (match binder with
+      | Tlam -> Karr(kind, kind_body), Tbind(Tlam, cvar, kind, cbody)
+      | Tall -> (
+        match kind_body with
+        | Ktyp -> Ktyp, Tbind(Tall, cvar, kind, cbody)
+        | _ -> raise (Typing(None, Kinding(styp, kind_body, Nonequal(Ktyp))))
+      )
+      | _ -> raise (Typing(None, NotImplemented "F_Omega"))
+    )
+  | Tprod(styp_list) -> 
+    let ctyp_list =
+      List.fold_left
+        (fun l styp -> 
+          match type_typ env styp with
+          | Ktyp, ctyp -> ctyp :: l
+          | kind, _ -> raise (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
+        )
+        []
+        styp_list
+    in 
+    Ktyp, Tprod(ctyp_list)
+  | Trcd(_) -> failwith "not implemented" 
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
@@ -238,11 +270,6 @@ let rec wf_ctyp env t : ctyp =
 
 let (!@) = Locations.with_loc  
 let (!@-) = Locations.dummy_located
-
-let make_cvar name id def =
-  { name ; id ; def}
-let make_loc obj loc =
-  { obj ; loc}
 
 let typorexp_loc = function
   | Exp(e) -> e.loc
@@ -287,9 +314,6 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
 
 let styp_to_ctyp env styp =
   within_loc (within_typ (svar_to_cvar env)) styp
-  
-let complex_pattern pat = (Typing(Some pat.loc, NotImplemented "Complex Pattern"))
-let f_omega loc = (Typing(Some loc, NotImplemented "F_Omega"))
 
 let infer_kind _ _ = default_kind
 
