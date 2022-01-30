@@ -266,20 +266,27 @@ let is_pvar x =
   | Pvar(_) -> true
   | _ -> false
 
+(* WARNIGN If many annotation, have to find a way out *)
+let rec find_binded_var pat =
+  match pat.obj with
+  | Pvar(evar) -> evar
+  | Ptyp(pat, _) -> find_binded_var pat
+  | _ -> failwith "Not implemented"
+
 let find_binded_type env pat exp =
-  match pat with
+  match pat.obj with
   | Pvar(evar) -> (
     match exp with
     | Eannot(_, styp_loc) ->
       let nenv, typ = styp_to_ctyp env styp_loc in
-      add_evar nenv evar typ, Some(typ)
-    | _ -> env, None
-  )
+      add_evar nenv evar typ, typ
+    | _ -> raise (Typing(Some(pat.loc), Annotation(evar))
+  ))
   | Ptyp(x, styp_loc) -> (
       match x.obj with 
       | Pvar(evar) -> 
         let nenv, typ = styp_to_ctyp env styp_loc in
-        add_evar nenv evar typ, Some(typ)
+        add_evar nenv evar typ, typ
       | _ -> failwith "Complex Pattern Not Implemented"
   )
  | _ -> failwith "Complex Pattern Not Implemented"
@@ -334,14 +341,17 @@ let rec type_exp env exp : ctyp =
     let t_expr = type_exp env exp in
     apply_arg env t_expr arg_list
   | Elet(is_rec, pat, exp1, exp2) ->
-    let nenv, opt_binded_type = find_binded_type env pat.obj exp1.obj in
-    let t_expr1 = type_exp nenv exp1 in
-    (match opt_binded_type with 
-    | None -> type_exp nenv exp2
-    | Some(binded_type) ->
+    if is_rec then 
+      let nenv, binded_type = find_binded_type env pat exp1.obj in
+      let t_expr1 = type_exp nenv exp1 in
       (match diff_typ binded_type t_expr1 with 
       | None -> type_exp nenv exp2
-      | Some(_) -> failwith "Ill Typed") )
+      | Some(_) -> failwith "Ill Typed") 
+    else 
+      let binded_var = find_binded_var pat in
+      let t_expr1 = type_exp env exp1 in 
+      let nenv = add_evar env binded_var t_expr1 in
+      type_exp nenv exp2
 
   | Epack(_)
   | Eopen(_) -> failwith "not implemented"
@@ -356,7 +366,7 @@ and apply_arg env t_expr arg_list =
       | None -> apply_arg env t2 arg_list
       | Some(_) -> failwith "Ill typed"
       )
-    | Typ(_) -> failwith "not Implemented"
+    | Typ(_) -> failwith "Not Implemented"
   ) 
   | _, [] -> t_expr
   | _, t::q -> failwith "Too much argument (or cannot be applied)"
@@ -380,7 +390,7 @@ and cross_binding env expr = function
           let nenv = add_evar nenv evar ctyp in
           Tbind(Tlam, cvar, infer_kind env ctyp, cross_binding nenv expr q)
         | _ -> failwith "Not implemented")
-    | Pvar(evar) ->  failwith "Missing annotation"
+    | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
     | Pprod(pat_list) -> failwith "Not implemented"
     | Pprim(prim_val) -> failwith "Not implemented"
   )
