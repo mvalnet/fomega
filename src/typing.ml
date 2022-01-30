@@ -254,6 +254,30 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     let nenv, c_typ = svar_to_cvar nenv s_typ in
     nenv, Tbind(b, cvar, kind, c_typ )
 
+let is_pvar x = 
+  match x.obj with
+  | Pvar(_) -> true
+  | _ -> false
+
+let find_binded_type env pat exp =
+  match pat with
+  | Pvar(evar) -> (
+    match exp with
+    | Eannot(_, styp_loc) ->
+      let nenv, typ = svar_to_cvar env (styp_loc.obj) in
+      add_evar nenv evar typ, Some(typ)
+    | _ -> env, None
+  )
+  | Ptyp(x, styp_loc) -> (
+      match x.obj with 
+      | Pvar(evar) -> 
+        let nenv, typ = svar_to_cvar env (styp_loc.obj) in
+        add_evar nenv evar typ, Some(typ)
+      | _ -> failwith "Complex Pattern Not Implemented"
+  )
+ | _ -> failwith "Complex Pattern Not Implemented"
+
+
 let rec type_exp env exp : ctyp =
   match exp.obj with 
   | Evar x -> get_evar exp env x
@@ -299,11 +323,36 @@ let rec type_exp env exp : ctyp =
 
   | Efun(binding_list, exp) ->
     cross_binding env exp binding_list
-  | Eappl(_) -> failwith "SystemF"
-  | Elet(_) -> failwith "SystemF"
+  | Eappl(exp, arg_list) ->
+    let t_expr = type_exp env exp in
+    apply_arg env t_expr arg_list
+  | Elet(is_rec, pat, exp1, exp2) ->
+    let nenv, opt_binded_type = find_binded_type env pat.obj exp1.obj in
+    let t_expr1 = type_exp nenv exp1 in
+    (match opt_binded_type with 
+    | None -> type_exp nenv exp2
+    | Some(binded_type) ->
+      (match diff_typ binded_type t_expr1 with 
+      | None -> type_exp nenv exp2
+      | Some(_) -> failwith "Ill Typed") )
 
   | Epack(_)
   | Eopen(_) -> failwith "not implemented"
+
+and apply_arg env t_expr arg_list =
+  match t_expr, arg_list with
+  | Tarr(t1,t2), arg1 :: arg_list -> (
+    match arg1 with
+    | Exp(arg1) -> 
+      let t_arg1 = type_exp env arg1 in 
+      (match diff_typ t1 t_arg1 with
+      | None -> apply_arg env t2 arg_list
+      | Some(_) -> failwith "Ill typed"
+      )
+    | Typ(_) -> failwith "not Implemented"
+  ) 
+  | _, [] -> t_expr
+  | _, t::q -> failwith "Too much argument (or cannot be applied)"
 
 and cross_binding env expr = function
   | [] -> type_exp env expr
