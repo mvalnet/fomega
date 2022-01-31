@@ -78,6 +78,7 @@ let _lazy =
 
 let norm t1 = t1
 let eq_typ t1 t2 = compare t1 t2 = 0
+(* compare (norm t1) (norm t2) for Task 4*)
 
 let eq_binder b1 b2 =
   match b1, b2 with

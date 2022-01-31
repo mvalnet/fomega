@@ -137,9 +137,6 @@ let min_excluded (env,loc_env) cvar =
   let mex = min_excluded_list id_list in
   { name = cvar.name ; id = mex ; def = cvar.def }
 
-let minimize_env env = env
-
-
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
@@ -183,8 +180,7 @@ let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
 let do_minimize = spec_true "--rawtypes"  "Do not minimize types"
 
 let minimize_typ env t =
-  let min_env = minimize_env env in
-  if !do_minimize then aux_minimize_typ (min_env, Tenv.empty) t else t
+  if !do_minimize then aux_minimize_typ (env, Tenv.empty) t else t
 
 (** [type_typ env t] typechecks source type [t] returning its kind [k] and
    an internal representation of [t].  This may non-localized (Unbound and
@@ -210,7 +206,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
         None,
         Kinding(t,kind1,Matching(Sarr))
       )
-    )
+     )
     | Karr(k_arg, k_ret) ->
       if eq_kind k_arg kind2 then
         k_ret, Tapp(ctyp1, ctyp2)
@@ -541,9 +537,46 @@ let type_decl env (d :decl) : env * typed_decl =
         
   | Dopen(_) -> raise (f_omega d.loc)
 
-  
+
+let typed_decl_env env typed_decl =
+  match typed_decl with
+  | Gtyp(cvar, toe) ->
+    let env, id = fresh_id_for env (cvar.name) in
+    env, Gtyp((make_cvar cvar.name id None), toe)
+  | Glet(evar, ctyp) -> env, typed_decl
+  | _ -> failwith "Not Implemented"
+
+let minimizing_def env typed_decl =
+  match typed_decl with
+  | Gtyp(cvar, toe) ->
+    Gtyp(cvar,
+    match toe with
+    | Exp(k, ctyp) ->
+      Exp(k, minimize_typ env ctyp)
+    | Typ(k) -> toe
+    )
+  | Glet(evar, ctyp) ->
+    Glet(evar, minimize_typ env ctyp)
+  | _ -> failwith "not implemented"
+
 let type_program env (p : program) : env * typed_decl list =
-  List.fold_left_map type_decl env p
+  let env, typed_decl_list = List.fold_left_map type_decl env p in
+  let nenv, typed_decl_list =
+  List.fold_left
+    (fun (env,l) typed_decl -> 
+      let nenv, ntyped_decl = (typed_decl_env env typed_decl) in
+      nenv, ntyped_decl :: l)
+    (env,[])
+    typed_decl_list    
+  in 
+  let ntyped_decl_list =
+    List.fold_left
+      (fun l typed_decl ->
+        (minimizing_def nenv typed_decl) :: l)
+      []
+      typed_decl_list
+  in
+  nenv, ntyped_decl_list
 
 
 (** Initial environment *)
