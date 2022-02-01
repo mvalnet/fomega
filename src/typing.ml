@@ -160,19 +160,9 @@ let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
         aux_minimize_typ env t2
       )
     | Tprod (ctyp_l) -> 
-      Tprod(
-        List.fold_left
-          (fun l t -> (aux_minimize_typ env t) :: l)
-          []
-          ctyp_l
-      )
+      Tprod(List.map (aux_minimize_typ env) ctyp_l      )
     | Trcd(rcd_l) ->
-      Trcd(
-        List.fold_left
-          (fun l (lab, t) -> (lab, aux_minimize_typ env t) :: l)
-          []
-          rcd_l
-      )
+      Trcd( map_snd (aux_minimize_typ env) rcd_l)
     | Tbind(binder, binded_cvar, kind , t) ->
       let min_binded = min_excluded (global_env, map_to_new_name) binded_cvar in
       let new_map = Tenv.add binded_cvar min_binded map_to_new_name in
@@ -237,28 +227,20 @@ let rec type_typ env (t : styp) : kind * ctyp =
     )
   | Tprod(styp_list) -> 
     let ctyp_list =
-      List.fold_left
-        (fun l styp -> 
+      List.map
+        (fun styp -> 
           match type_typ env styp with
-          | Ktyp, ctyp -> ctyp :: l
+          | Ktyp, ctyp -> ctyp 
           | kind, _ -> raise (
             Typing(None, Kinding(styp, kind, Nonequal (Ktyp)))
           )
         )
-        []
         styp_list
     in 
     Ktyp, Tprod(ctyp_list)
   | Trcd(labstyp_list) -> 
     Ktyp, (* I suppose? *)
-    Trcd(
-      List.fold_left
-      (fun l (lab,s) ->
-      (lab, snd (type_typ env s)) :: l
-      )
-      []
-      labstyp_list
-    )
+    Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
@@ -290,22 +272,8 @@ let rec eager_expansion ctyp =
   | Tprim(_) -> ctyp
   | Tarr(ctyp1, ctyp2) -> Tarr(eager_expansion ctyp1, eager_expansion ctyp2)
   | Tapp(ctyp1, ctyp2) -> Tapp(eager_expansion ctyp1, eager_expansion ctyp2)
-  | Tprod(typ_list) -> Tprod (
-    List.fold_left
-      (fun l ctyp -> 
-        (eager_expansion ctyp) :: l
-      )
-      []
-      typ_list
-    )
-  | Trcd(labctyp_list) -> Trcd (
-    List.fold_left
-      (fun l (lab,ctyp) -> 
-        (lab, eager_expansion ctyp) :: l
-      )
-      []
-      labctyp_list
-    )
+  | Tprod(typ_list) -> Tprod (List.map eager_expansion typ_list)
+  | Trcd(labctyp_list) -> Trcd (map_snd eager_expansion labctyp_list)
 
   | _ -> failwith ""
 
@@ -333,24 +301,16 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     let env2, c2 = svar_to_cvar env1 s2 in
     env2, Tapp(c1, c2)
   | Tprod(s_list) ->
-    let nenv, c_list = 
-      List.fold_left
-        (fun (env, l) s ->
-          let nenv, c = svar_to_cvar env s in
-          nenv, c :: l
-        )
-        (env, [])
-        s_list
-    in 
+    let nenv, c_list = List.fold_left_map svar_to_cvar env s_list in 
     nenv, Tprod(c_list)
   | Trcd(labs_list) ->
     let nenv, labc_list =
-      List.fold_left
-        (fun (env,l) (lab,s) ->
+      List.fold_left_map
+        (fun env (lab,s)  ->
           let nenv, c = svar_to_cvar env s in
-          nenv, (lab, c) :: l
+          nenv, (lab, c)
         )
-        (env, [])
+        env
         labs_list
     in 
     nenv, Trcd(labc_list)
@@ -381,20 +341,14 @@ let rec rename_svar tau alpha tau' =
     if x = alpha then tau'
     else tau 
   | Tprim(_) -> tau 
-  | Tprod(styp_list) -> Tprod(
-    List.fold_left
-      (fun l styp -> 
-        (rename_svar styp alpha tau') :: l)
-        []
-        styp_list
-  )
-  | Trcd(lab_styp_list) -> Trcd(
-    List.fold_left
-      (fun l (lab,styp) -> 
-        (lab, rename_svar styp alpha tau') :: l)
-      []
-      lab_styp_list
-  )
+  | Tprod(styp_list) ->
+    Tprod(
+      List.map (fun styp -> (rename_svar styp alpha tau')) styp_list
+    )
+  | Trcd(lab_styp_list) -> 
+    Trcd(
+      map_snd (fun styp -> (rename_svar styp alpha tau')) lab_styp_list
+    )
   | Tapp(styp1, styp2) -> 
     Tapp(
       rename_svar styp1 alpha tau',
@@ -449,19 +403,11 @@ let rec rename cvar cvar_ctyp ctyp =
       rename cvar cvar_ctyp ctyp2)
   | Tprod(ctyp_list) -> 
     Tprod(
-      List.fold_left
-        (fun l ctyp -> 
-          (rename cvar cvar_ctyp ctyp) :: l)
-          []
-          ctyp_list
+      List.map (rename cvar cvar_ctyp) ctyp_list
     )
   | Trcd(lab_ctyp_list) ->
     Trcd(
-      List.fold_left
-        (fun l (lab, ctyp) -> 
-          (lab, rename cvar cvar_ctyp ctyp) :: l)
-          []
-          lab_ctyp_list
+      map_snd (rename cvar cvar_ctyp) lab_ctyp_list
     )
   | Tbind(binder, binded_cvar, k, ctyp) ->
     if (binded_cvar.name) = (cvar.name) then ctyp
@@ -485,12 +431,7 @@ let rec type_exp env exp : ctyp =
     )
   | Eprod(exp_list) ->
     Tprod(
-      List.fold_left
-        (fun l exp -> 
-          (type_exp env exp) :: l
-        )
-        []
-        exp_list
+      List.map (type_exp env) exp_list
     )
   | Eproj(exp, n) -> (
     match type_exp env exp with
@@ -504,12 +445,7 @@ let rec type_exp env exp : ctyp =
   )
   | Ercd(labexp_list) ->
     Trcd(
-      List.fold_left
-        (fun l (lab,exp) -> 
-          (lab, type_exp env exp) :: l
-        )
-        []
-        labexp_list
+      map_snd (type_exp env) labexp_list
     )
   | Elab(exp, lab) -> 
   ( match type_exp env exp with
