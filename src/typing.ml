@@ -400,6 +400,38 @@ let find_binded_type env pat exp =
   )
  | _ -> raise (complex_pattern pat)
 
+let rec rename cvar cvar_ctyp ctyp =
+  match ctyp with 
+  | Tvar(cvar) -> cvar_ctyp
+  | Tprim(_) -> ctyp
+  | Tapp(ctyp1, ctyp2) -> 
+    Tapp(
+      rename cvar cvar_ctyp ctyp1,
+      rename cvar cvar_ctyp ctyp2)
+  | Tarr(ctyp1, ctyp2) -> 
+    Tarr(
+      rename cvar cvar_ctyp ctyp1,
+      rename cvar cvar_ctyp ctyp2)
+  | Tprod(ctyp_list) -> 
+    Tprod(
+      List.fold_left
+        (fun l ctyp -> 
+          (rename cvar cvar_ctyp ctyp) :: l)
+          []
+          ctyp_list
+    )
+  | Trcd(lab_ctyp_list) ->
+    Trcd(
+      List.fold_left
+        (fun l (lab, ctyp) -> 
+          (lab, rename cvar cvar_ctyp ctyp) :: l)
+          []
+          lab_ctyp_list
+    )
+  | Tbind(binder, binded_cvar, k, ctyp) ->
+    if (binded_cvar.name) = (cvar.name) then ctyp
+    else
+      Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp)
 
 let rec type_exp env exp : ctyp =
   try
@@ -501,9 +533,10 @@ let rec type_exp env exp : ctyp =
 and apply_arg env t_expr arg_list =
   match t_expr, arg_list with
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
-    let nenv, ctyp = styp_to_ctyp env styp_loc in
+    let nenv, arg_ctyp = styp_to_ctyp env styp_loc in
     (* check kind compatibility *)
-    apply_arg nenv t_expr arg_list 
+    let ctyp = rename cvar arg_ctyp ctyp in
+    apply_arg nenv ctyp arg_list 
   | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in 
       (match diff_typ t_arg1 t1 with
