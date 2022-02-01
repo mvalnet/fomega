@@ -434,7 +434,6 @@ let rec rename cvar cvar_ctyp ctyp =
       Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp)
 
 let rec type_exp env exp : ctyp =
-  try
   match exp.obj with 
   | Evar x -> get_evar exp env x
   | Eprim (Int _) -> Tprim Tint
@@ -488,11 +487,11 @@ let rec type_exp env exp : ctyp =
             )
         with 
           | Not_found -> raise (
-          Typing(
-            Some exp.loc,
-            Expected(ctyp, Matching(Srcd (Some lab) ))
+            Typing(
+              Some exp.loc,
+              Expected(ctyp, Matching(Srcd (Some lab) ))
+           )
           )
-      )
     )
     | ctyp -> raise (
       Typing(
@@ -526,9 +525,22 @@ let rec type_exp env exp : ctyp =
       let nenv = add_evar env binded_var t_expr1 in
       type_exp nenv exp2
 
-  | Epack(_)
-  | Eopen(_) -> raise (f_omega exp.loc)
-  with | Not_found -> raise (Typing(None, NotImplemented("wtf")))
+  | Epack(styp_loc, exp, styp_loc2) -> raise (f_omega exp.loc)
+  | Eopen(alpha, x, exp1, exp2) ->
+    let ctyp1 = type_exp env exp1 in 
+    (match ctyp1 with
+    | Tbind(Texi,_,_, _) ->
+      let env, id = fresh_id_for env alpha in 
+      let cvar = make_cvar alpha id None in 
+      let nenv = add_evar env x ctyp1 in 
+      let ctyp2 = type_exp nenv exp2 in
+      wf_ctyp cvar ctyp2
+    | _ -> raise (
+      Typing(
+        Some exp.loc,
+         Expected(ctyp1, Matching(Sexi))
+      )
+    ))
 
 and apply_arg env t_expr arg_list =
   match t_expr, arg_list with
