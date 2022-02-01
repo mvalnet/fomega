@@ -7,7 +7,7 @@ open Syntax
 open Type
 open Error
 
-(** 1. Environments *)
+(**________________________ 1. Environments ____________________________*)
 
 
 (** We represent the environment using maps.  (For short programs, we could
@@ -95,7 +95,7 @@ let make_loc obj loc =
 let complex_pattern pat = (Typing(Some pat.loc, NotImplemented "Complex Pattern"))
 let f_omega loc = (Typing(Some loc, NotImplemented "F_Omega"))
 
-(** 2. Type minimization *)
+(** __________________________ 2. Type minimization __________________________ *)
 
 (** Type checking must perform computation on types when checking for
    convertibilty.  This requires appropriate renaming to avoid capture,
@@ -143,7 +143,11 @@ let min_excluded (env,loc_env) cvar =
 let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
   let env = (global_env, map_to_new_name) in
   match t with
-    | Tvar(cv) -> Tvar(Tenv.find cv map_to_new_name)
+    | Tvar(cv) -> (
+      try Tvar(Tenv.find cv map_to_new_name)
+      with 
+       | Not_found -> Tvar(find_svar global_env cv.name)
+    )
     | Tprim(_) -> t
     | Tapp(t1, t2) -> 
       Tapp(
@@ -179,8 +183,8 @@ let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
    [true] and may be changed with the `--rawtypes` command line option, *)
 let do_minimize = spec_true "--rawtypes"  "Do not minimize types"
 
-let minimize_typ env t =
-  if !do_minimize then aux_minimize_typ (env, Tenv.empty) t else t
+let minimize_typ env t = t
+  (*if !do_minimize then aux_minimize_typ (env, Tenv.empty) t else t*)
 
 (** [type_typ env t] typechecks source type [t] returning its kind [k] and
    an internal representation of [t].  This may non-localized (Unbound and
@@ -274,6 +278,39 @@ let rec wf_ctyp env t : ctyp =
      if true then t else raise (Escape a)
   | _ -> t
 
+(* __________________________ 3. Eager expansion __________________________ *)
+
+let rec eager_expansion ctyp = 
+  match ctyp with 
+  | Tvar(cvar) -> (
+    match cvar.def with 
+      | None -> ctyp
+      | Some(def) -> eager_expansion def.typ
+    )
+  | Tprim(_) -> ctyp
+  | Tarr(ctyp1, ctyp2) -> Tarr(eager_expansion ctyp1, eager_expansion ctyp2)
+  | Tapp(ctyp1, ctyp2) -> Tapp(eager_expansion ctyp1, eager_expansion ctyp2)
+  | Tprod(typ_list) -> Tprod (
+    List.fold_left
+      (fun l ctyp -> 
+        (eager_expansion ctyp) :: l
+      )
+      []
+      typ_list
+    )
+  | Trcd(labctyp_list) -> Trcd (
+    List.fold_left
+      (fun l (lab,ctyp) -> 
+        (lab, eager_expansion ctyp) :: l
+      )
+      []
+      labctyp_list
+    )
+
+  | _ -> failwith ""
+
+
+(* __________________________ 4. Type checking __________________________ *)
 
 let (!@) = Locations.with_loc  
 let (!@-) = Locations.dummy_located
@@ -285,7 +322,7 @@ let typorexp_loc = function
 let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   match scar with
   | Tvar(v) ->
-   env, Tvar(find_svar env v)
+   env, Tvar(get_svar env v)
   | Tprim(x) -> env, Tprim(x)
   | Tapp(s1, s2) | Tarr(s1, s2) ->
     let env1, c1 = svar_to_cvar env s1 in
@@ -313,11 +350,12 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
         labs_list
     in 
     nenv, Trcd(labc_list)
-  | Tbind(b, var, kind, s_typ) ->
+  | Tbind(b, var, kind, styp) ->
     let nenv, id = fresh_id_for env var in
-    let cvar = {name = var ; id ; def = None } in
-    let nenv, c_typ = svar_to_cvar nenv s_typ in
-    nenv, Tbind(b, cvar, kind, c_typ )
+    let nenv, ctyp = svar_to_cvar nenv styp in
+    let def = { scope = -1 ; typ = ctyp } in
+    let cvar = {name = var ; id ; def = Some def } in
+    nenv, Tbind(b, cvar, kind, ctyp )
 
 let styp_to_ctyp env styp =
   within_loc (within_typ (svar_to_cvar env)) styp
@@ -360,6 +398,7 @@ let find_binded_type env pat exp =
 
 
 let rec type_exp env exp : ctyp =
+  try
   match exp.obj with 
   | Evar x -> get_evar exp env x
   | Eprim (Int _) -> Tprim Tint
@@ -371,7 +410,7 @@ let rec type_exp env exp : ctyp =
    ( match diff_typ t_expr t_annot with
     | None -> t_annot
     | Some(subt_expr, subt_annot) -> raise (
-      make_showdiff_error exp.loc t_annot t_expr subt_annot subt_expr
+      make_showdiff_error exp.loc t_expr t_annot subt_expr subt_annot
       )
     )
   | Eprod(exp_list) ->
@@ -453,12 +492,13 @@ let rec type_exp env exp : ctyp =
 
   | Epack(_)
   | Eopen(_) -> raise (f_omega exp.loc)
+  with | Not_found -> raise (Typing(None, NotImplemented("wtf")))
 
 and apply_arg env t_expr arg_list =
   match t_expr, arg_list with
   | Tarr(t1,t2), arg1 :: arg_list -> (
     match arg1 with
-    | Exp(arg1) -> 
+    | Exp(arg1) ->
       let t_arg1 = type_exp env arg1 in 
       (match diff_typ t_arg1 t1 with
       | None -> apply_arg env t2 arg_list
@@ -478,7 +518,7 @@ and cross_binding env expr = function
   | (Typ(svar,kind)) :: q ->
     let nenv, id_svar = fresh_id_for env svar in 
     let cvar = make_cvar svar id_svar None in
-    Tbind(Tlam, cvar, kind, cross_binding nenv expr q)
+    Tbind(Tall, cvar, kind, cross_binding nenv expr q)
   | Exp(pat) :: q -> (
     match pat.obj with
     | Ptyp(pat, styp_loc) -> 
@@ -486,9 +526,10 @@ and cross_binding env expr = function
         | Pvar(evar) ->
           let tp_evar = "temporary" in
           let nenv, id_svar = fresh_id_for env tp_evar in
-          let cvar = make_cvar tp_evar id_svar None in
-          let nenv = add_svar nenv tp_evar cvar in
           let nenv, ctyp = svar_to_cvar nenv (styp_loc.obj) in
+          let def = { scope = -1 ; typ = ctyp } in
+          let cvar = make_cvar tp_evar id_svar (Some def) in
+          let nenv = add_svar nenv tp_evar cvar in
           let nenv = add_evar nenv evar ctyp in
           Tbind(Tlam, cvar, infer_kind env ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
@@ -561,7 +602,8 @@ let minimizing_def env typed_decl =
 
 let type_program env (p : program) : env * typed_decl list =
   let env, typed_decl_list = List.fold_left_map type_decl env p in
-  let nenv, typed_decl_list =
+  env, typed_decl_list
+  (*let nenv, typed_decl_list =
   List.fold_left
     (fun (env,l) typed_decl -> 
       let nenv, ntyped_decl = (typed_decl_env env typed_decl) in
@@ -576,7 +618,7 @@ let type_program env (p : program) : env * typed_decl list =
       []
       typed_decl_list
   in
-  nenv, ntyped_decl_list
+  nenv, ntyped_decl_list*)
 
 
 (** Initial environment *)
