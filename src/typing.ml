@@ -324,7 +324,11 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   | Tvar(v) ->
    env, Tvar(get_svar env v)
   | Tprim(x) -> env, Tprim(x)
-  | Tapp(s1, s2) | Tarr(s1, s2) ->
+   | Tarr(s1, s2) ->
+    let env1, c1 = svar_to_cvar env s1 in
+    let env2, c2 = svar_to_cvar env1 s2 in
+    env2, Tarr(c1, c2)
+  | Tapp(s1, s2) ->
     let env1, c1 = svar_to_cvar env s1 in
     let env2, c2 = svar_to_cvar env1 s2 in
     env2, Tapp(c1, c2)
@@ -496,9 +500,11 @@ let rec type_exp env exp : ctyp =
 
 and apply_arg env t_expr arg_list =
   match t_expr, arg_list with
-  | Tarr(t1,t2), arg1 :: arg_list -> (
-    match arg1 with
-    | Exp(arg1) ->
+  | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
+    let nenv, ctyp = styp_to_ctyp env styp_loc in
+    (* check kind compatibility *)
+    apply_arg nenv t_expr arg_list 
+  | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in 
       (match diff_typ t_arg1 t1 with
       | None -> apply_arg env t2 arg_list
@@ -506,11 +512,12 @@ and apply_arg env t_expr arg_list =
         make_showdiff_error arg1.loc t_arg1 t1 subt_arg1 sub_t1
         )
       )
-    | Typ(styp_loc) -> raise (f_omega styp_loc.loc)
-  ) 
   | _, [] -> t_expr
-  | ctyp, t::q -> raise (
-    Typing(Some (typorexp_loc t), Expected(ctyp, Matching(Sarr)))
+  | ctyp, Exp(arg1) :: q -> raise (
+    Typing(Some (arg1.loc), Expected(ctyp, Matching(Sarr)))
+  )
+  | ctyp, Typ(styp_loc) :: q -> raise (
+    Typing(Some (styp_loc.loc), Expected(ctyp, Matching(Sall)))
   )
 
 and cross_binding env expr = function
