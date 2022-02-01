@@ -524,7 +524,9 @@ and cross_binding env expr = function
   | [] -> type_exp env expr
   | (Typ(svar,kind)) :: q ->
     let nenv, id_svar = fresh_id_for env svar in 
-    let cvar = make_cvar svar id_svar None in
+    let cvar = make_cvar svar id_svar None in 
+    let nenv = add_svar env svar cvar in 
+    let nenv = add_cvar nenv cvar kind in
     Tbind(Tall, cvar, kind, cross_binding nenv expr q)
   | Exp(pat) :: q -> (
     match pat.obj with
@@ -533,12 +535,12 @@ and cross_binding env expr = function
         | Pvar(evar) ->
           let tp_evar = "temporary" in
           let nenv, id_svar = fresh_id_for env tp_evar in
-          let nenv, ctyp = svar_to_cvar nenv (styp_loc.obj) in
+          let nenv, ctyp = styp_to_ctyp env styp_loc in
           let def = { scope = -1 ; typ = ctyp } in
           let cvar = make_cvar tp_evar id_svar (Some def) in
           let nenv = add_svar nenv tp_evar cvar in
           let nenv = add_evar nenv evar ctyp in
-          Tbind(Tlam, cvar, infer_kind env ctyp, cross_binding nenv expr q)
+          Tarr(ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
     | _ -> raise (complex_pattern pat)
