@@ -375,6 +375,41 @@ let is_pvar x =
   | Pvar(_) -> true
   | _ -> false
 
+let rec rename_svar tau alpha tau' = 
+  match tau with
+  | Tvar(x) -> 
+    if x = alpha then tau'
+    else tau 
+  | Tprim(_) -> tau 
+  | Tprod(styp_list) -> Tprod(
+    List.fold_left
+      (fun l styp -> 
+        (rename_svar styp alpha tau') :: l)
+        []
+        styp_list
+  )
+  | Trcd(lab_styp_list) -> Trcd(
+    List.fold_left
+      (fun l (lab,styp) -> 
+        (lab, rename_svar styp alpha tau') :: l)
+      []
+      lab_styp_list
+  )
+  | Tapp(styp1, styp2) -> 
+    Tapp(
+      rename_svar styp1 alpha tau',
+      rename_svar styp2 alpha tau'
+    )
+  | Tarr(styp1, styp2) -> 
+    Tarr(
+      rename_svar styp1 alpha tau',
+      rename_svar styp2 alpha tau'
+    )
+  | Tbind(binder, svar, kind, styp) -> 
+    if svar = alpha then tau
+    else
+      Tbind(binder, svar, kind, rename_svar styp alpha tau')    
+
 (* WARNIGN If many annotation, have to find a way out *)
 let rec find_binded_var pat =
   match pat.obj with
@@ -525,7 +560,28 @@ let rec type_exp env exp : ctyp =
       let nenv = add_evar env binded_var t_expr1 in
       type_exp nenv exp2
 
-  | Epack(styp_loc, exp, styp_loc2) -> raise (f_omega exp.loc)
+  | Epack(tau', exp, styp_loc) ->
+    let ctyp = type_exp env exp in
+    let nenv, ctyp2 = styp_to_ctyp env styp_loc in 
+   (match styp_loc.obj with 
+    | Tbind(Texi, alpha, kind, tau)  -> 
+      let expected_styp = rename_svar tau alpha (tau').obj in
+      let expected_styp_loc = { loc = styp_loc.loc ; obj = expected_styp} in
+      let nenv, expected_exp_ctyp = styp_to_ctyp env expected_styp_loc in 
+      (match diff_typ ctyp expected_exp_ctyp with
+      | None -> 
+        let nenv, ctyp = styp_to_ctyp env styp_loc in ctyp
+      | Some(subt_expr, subt_expected) -> raise (
+        make_showdiff_error exp.loc ctyp expected_exp_ctyp subt_expr subt_expected
+      )
+)
+    | _ -> raise (
+      Typing(
+        Some exp.loc,
+         Expected(ctyp2, Matching(Sexi))
+      )
+    )
+   )
   | Eopen(alpha, x, exp1, exp2) ->
     let ctyp1 = type_exp env exp1 in 
     (match ctyp1 with
