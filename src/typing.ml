@@ -566,13 +566,13 @@ and cross_binding env expr = function
     | Ptyp(pat, styp_loc) -> 
       (match pat.obj with 
         | Pvar(evar) ->
-          let tp_evar = "temporary" in
-          let nenv, id_svar = fresh_id_for env tp_evar in
-          let nenv, ctyp = styp_to_ctyp env styp_loc in
-          let def = { scope = -1 ; typ = ctyp } in
+          (*let tp_evar = "temporary" in
+          let nenv, id_svar = fresh_id_for env tp_evar in*)
+          let _, ctyp = styp_to_ctyp env styp_loc in
+          (*let def = { scope = -1 ; typ = ctyp } in
           let cvar = make_cvar tp_evar id_svar (Some def) in
-          let nenv = add_svar nenv tp_evar cvar in
-          let nenv = add_evar nenv evar ctyp in
+          let nenv = add_svar nenv tp_evar cvar in*)
+          let nenv = add_evar env evar ctyp in
           Tarr(ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
@@ -618,8 +618,19 @@ let type_decl env (d :decl) : env * typed_decl =
       let ctyp = type_exp env exp in 
       (add_evar env binded_var ctyp), Glet(binded_var, ctyp)
         
-  | Dopen(_) -> raise (f_omega d.loc)
-
+  | Dopen(svar, evar, exp) ->
+    let ctyp = type_exp env exp in 
+    let nenv, id = fresh_id_for env svar in
+    let cvar = make_cvar svar id None in 
+    match ctyp with 
+    | Tbind(Texi,_,_, _) -> 
+      nenv, Gopen(cvar, evar, ctyp)
+    | _ -> raise (
+      Typing(
+        Some d.loc,
+         Expected(ctyp, Matching(Sexi))
+      )
+    )
 
 let typed_decl_env env typed_decl =
   match typed_decl with
