@@ -43,3 +43,8 @@ module Senv : Map.S with type key = string
     map either program variables or source type variables. *)
 
                                       
+
+(** [rename] replaces every occurrence of the first argument by
+   the second argument in the body of the third argument **)
+
+val rename : cvar -> ctyp -> ctyp -> ctyp

@@ -85,8 +85,7 @@ let eq_binder b1 b2 =
   | Tlam, Tlam | Tall, Tall | Texi, Texi -> true
   | _ -> false
 
-let eq_cvar v1 v2 =
-  v1.name = v2.name && v1.id = v2.id
+
 
 let eq_prim p1 p2 =
   match p1, p2 with
@@ -94,16 +93,80 @@ let eq_prim p1 p2 =
   | Tstring, Tstring | Tunit, Tunit -> true
   | _ -> false
 
-let rec recurse_if_equal h1 h2 q1 q2 =
+let print_prim p =
+  match p with
+  | Tint -> "int"
+  | Tbool -> "bool"
+  | Tstring -> "string"
+  | Tunit -> "unit"
+
+let struct_eq_cvar c1 c2 =
+  c1.name = c2.name && c1.id = c2.id
+let rec rename cvar cvar_ctyp ctyp =
+  match ctyp with 
+  | Tvar(cvar') -> 
+    if struct_eq_cvar cvar cvar' then 
+      cvar_ctyp
+    else ctyp
+  | Tprim(_) -> ctyp
+  | Tapp(ctyp1, ctyp2) -> 
+    Tapp(
+      rename cvar cvar_ctyp ctyp1,
+      rename cvar cvar_ctyp ctyp2)
+  | Tarr(ctyp1, ctyp2) -> 
+    Tarr(
+      rename cvar cvar_ctyp ctyp1,
+      rename cvar cvar_ctyp ctyp2)
+  | Tprod(ctyp_list) -> 
+    Tprod(
+      List.map (rename cvar cvar_ctyp) ctyp_list
+    )
+  | Trcd(lab_ctyp_list) ->
+    Trcd(
+      map_snd (rename cvar cvar_ctyp) lab_ctyp_list
+    )
+  | Tbind(binder, binded_cvar, k, ctyp) ->
+    if (binded_cvar.name) = (cvar.name) then ctyp
+    else
+      Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp)
+
+let rec eq_cvar v1 v2 =
+  if v1.name = v2.name && v1.id = v2.id then None 
+  else (
+    match v1.def, v2.def with 
+    | None, None -> Some(Tvar v1, Tvar v2) 
+    | Some(def1), None -> diff_typ def1.typ (Tvar v2) 
+    | None, Some(def2) -> diff_typ (Tvar v1) def2.typ
+    | Some(def1), Some(def2) -> diff_typ def1.typ def2.typ
+  )
+and recurse_if_equal h1 h2 q1 q2 =
   match diff_typ h1 h2 with
   | None -> diff_typ q1 q2
   | Some(_) as l -> l
+and iter_diff_typ t1 t2 l1 l2 =
+  match l1, l2 with
+  | [], [] -> None 
+  | t1 :: q1, t2 :: q2 ->
+    (match diff_typ t1 t2 with
+      | None -> iter_diff_typ t1 t2 q1 q2
+      | Some _ as s -> s)
+  | _ -> Some(t1, t2)
+
+and record_diff_typ typ1 typ2 l1 l2 =
+  match l1, l2 with 
+  | [], [] -> None 
+  | (l1, t1) :: q1, (l2, t2) :: q2 -> 
+    if l1 <> l2 then Some(t1, t2)
+    else (
+      match diff_typ t1 t2 with 
+      | None -> record_diff_typ typ1 typ2 q1 q2
+      | Some _ as s -> s
+    )
+  | _ -> Some(typ1, typ2)
 
 and diff_typ t1 t2 = 
   match t1, t2 with
-  | Tvar(v1), Tvar(v2) ->
-    if eq_cvar v1 v2 then None
-    else Some(t1,t2)
+  | Tvar(v1), Tvar(v2) -> eq_cvar v1 v2
   
   | Tprim(p1), Tprim(p2) -> 
     if eq_prim p1 p2 then None
@@ -112,23 +175,21 @@ and diff_typ t1 t2 =
   | Tapp(f1, a1), Tapp(f2, a2)
   | Tarr(f1, a1), Tarr(f2, a2) ->
     recurse_if_equal f1 f2 a1 a2
-  
-  | Tprod([]), Tprod([]) | Trcd([]), Trcd([]) -> None
-  | Tprod([]), _ | _, Tprod([])
-  | Trcd([]), _  | _, Trcd([]) -> Some(t1, t2)
 
-  | Tprod(h1::q1), Tprod(h2::q2) ->
-    recurse_if_equal h1 h2 (Tprod q1) (Tprod q2)
+  | Tprod(l1), Tprod(l2) -> iter_diff_typ t1 t2 l1 l2
 
-  | Trcd((l1,h1)::q1), Trcd((l2,h2)::q2) ->
-    if l1 <> l2 then
-      Some(t1,t2)
-    else
-      recurse_if_equal h1 h2 (Trcd q1) (Trcd q2)
+  | Trcd(l1), Trcd(l2) ->
+    let compare_label (l1, t1) (l2, t2) =
+      if l1 = l2 then 0 else if l1 > l2 then 1 else -1
+    in 
+    let sorted_l1 = List.sort compare_label l1 in 
+    let sorted_l2 = List.sort compare_label l2 in 
+    record_diff_typ t1 t2 sorted_l1 sorted_l2
 
   | Tbind(b1,x1,k1,body1), Tbind(b2,x2,k2,body2) ->
-    if eq_binder b1 b2 && eq_cvar x1 x2 && eq_kind k1 k2 then
-      diff_typ body1 body2
+    if eq_binder b1 b2 && eq_kind k1 k2 then
+      let body1_renamed = rename x1 (Tvar x2) body1 in 
+      diff_typ body1_renamed body2
     else Some(t1, t2)
 
   | _ -> Some(t1, t2)
