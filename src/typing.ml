@@ -92,10 +92,12 @@ let make_cvar name id def =
 let make_loc obj loc =
   { obj ; loc}
 
-let complex_pattern pat = (Typing(Some pat.loc, NotImplemented "Complex Pattern"))
-let f_omega loc = (Typing(Some loc, NotImplemented "F_Omega"))
+let complex_pattern pat = Typing(Some pat.loc, NotImplemented "Complex Pattern")
+let f_omega loc = Typing(Some loc, NotImplemented "F_Omega")
 
-(** __________________________ 2. Type minimization __________________________ *)
+let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
+
+(* _________________________ 2. Type minimization _________________________ *)
 
 (** Type checking must perform computation on types when checking for
    convertibilty.  This requires appropriate renaming to avoid capture,
@@ -126,7 +128,7 @@ let min_excluded (env,loc_env) cvar =
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
-let rec aux_minimize_typ (global_env, (map_to_new_cvar : cvar Senv.t)) (t :ctyp) =
+let rec aux_minimize_typ (global_env, map_to_new_cvar) (t :ctyp) =
   let env = (global_env, map_to_new_cvar) in
   match t with
     | Tvar(cv) -> (
@@ -137,7 +139,8 @@ let rec aux_minimize_typ (global_env, (map_to_new_cvar : cvar Senv.t)) (t :ctyp)
         try Tvar(find_svar global_env cv.name)
         with 
           | Not_found ->
-            Tvar({name = cv.name ; id = 0 ; def = None}) (* STILL A PROBLEM THERE *)
+            Tvar({name = cv.name ; id = 0 ; def = None}) 
+          (* STILL A PROBLEM THERE *)
            (*Format.printf "here" ; Format.printf "%s" cv.name ; raise Not_found*)
     )
     | Tprim(_) -> t
@@ -178,12 +181,20 @@ let rec type_typ env (t : styp) : kind * ctyp =
   | Tvar(svar) ->
     let cvar = get_svar env svar in
     let kind = find_cvar env cvar in 
-    kind, Tvar(cvar)
-  | Tapp(styp1, styp2) ->
+    kind,
+    if svar = "int" && (cvar.id = 0) then Tprim Tint 
+    else if svar = "bool" && (cvar.id = 0) then Tprim Tbool
+    else if svar = "string" && (cvar.id = 0) then Tprim Tstring
+    else if svar = "unit" && (cvar.id = 0) then Tprim Tunit 
+    else Tvar cvar   
+  | Tarr(styp1, styp2) ->
     let kind1, ctyp1 = type_typ env styp1 in
     let kind2, ctyp2 = type_typ env styp2 in
-    Karr(kind1, kind2), Tapp(ctyp1, ctyp2)
-  | Tarr(styp1, styp2) -> 
+    (match kind1, kind2 with 
+    | Ktyp, Ktyp -> Ktyp, Tarr(ctyp1, ctyp2)
+    | Karr(_), _ -> raise (not_ktyp styp1 kind1)
+    | _, Karr(_) -> raise (not_ktyp styp2 kind2))
+  | Tapp(styp1, styp2) -> 
     let kind1, ctyp1 = type_typ env styp1 in
     let kind2, ctyp2 = type_typ env styp2 in
     (match kind1 with
@@ -196,12 +207,12 @@ let rec type_typ env (t : styp) : kind * ctyp =
     | Karr(k_arg, k_ret) ->
       if eq_kind k_arg kind2 then
         k_ret, Tapp(ctyp1, ctyp2)
-      else raise (
+      else (Format.printf "Karr" ; raise (
         Typing(
           None,
           Kinding(t, k_arg, Nonequal(kind2))
         )
-      )
+      ))
     )
   | Tbind(binder, svar, kind, styp) ->
     let nenv, id = fresh_id_for env svar in 
@@ -210,12 +221,11 @@ let rec type_typ env (t : styp) : kind * ctyp =
     let kind_body, cbody = type_typ nenv styp in
     (match binder with
       | Tlam -> Karr(kind, kind_body), Tbind(Tlam, cvar, kind, cbody)
-      | Tall -> (
+      | binder -> (
         match kind_body with
-        | Ktyp -> Ktyp, Tbind(Tall, cvar, kind, cbody)
-        | _ -> raise (Typing(None, Kinding(styp, kind_body, Nonequal(Ktyp))))
+        | Ktyp -> Ktyp, Tbind(binder, cvar, kind, cbody)
+        | _ -> raise (not_ktyp styp kind_body)
       )
-      | _ -> raise (Typing(None, NotImplemented "F_Omega"))
     )
   | Tprod(styp_list) -> 
     let ctyp_list =
@@ -223,9 +233,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
         (fun styp -> 
           match type_typ env styp with
           | Ktyp, ctyp -> ctyp 
-          | kind, _ -> raise (
-            Typing(None, Kinding(styp, kind, Nonequal (Ktyp)))
-          )
+          | kind, _ -> raise (not_ktyp styp kind)
         )
         styp_list
     in 
@@ -233,6 +241,9 @@ let rec type_typ env (t : styp) : kind * ctyp =
   | Trcd(labstyp_list) -> 
     Ktyp, (* I suppose? *)
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
+
+let type_typ env styp_loc = 
+  within_loc (type_typ env) styp_loc
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
@@ -297,9 +308,8 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     nenv, Tbind(b, cvar, kind, ctyp )
 
 let styp_to_ctyp env styp =
-  within_loc (within_typ (svar_to_cvar env)) styp
-
-let infer_kind _ _ = default_kind
+  let env, ctyp = within_loc (within_typ (svar_to_cvar env)) styp in 
+  env, norm ctyp 
 
 let make_showdiff_error loc cur exp sub_cur sub_exp =
   Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
@@ -382,7 +392,7 @@ let rec type_exp env exp : ctyp =
     let t_expr = type_exp env exp in
     let nenv, t_annot = styp_to_ctyp env styp_loc in
    ( match diff_typ t_expr t_annot with
-    | None -> norm t_annot
+    | None -> t_annot
     | Some(subt_expr, subt_annot) -> raise (
       make_showdiff_error exp.loc t_expr t_annot subt_expr subt_annot
       )
@@ -456,7 +466,7 @@ let rec type_exp env exp : ctyp =
 
   | Epack(packed_styp, exp, styp_as) ->
     let env, ctyp_as = styp_to_ctyp env styp_as in
-    let env, packed_ctyp = styp_to_ctyp env packed_styp in 
+    let env, packed_ctyp = styp_to_ctyp env packed_styp in
     norm(typ_pack env packed_ctyp exp ctyp_as )
   | Eopen(alpha, x, exp1, exp2) ->
     let ctyp1 = type_exp env exp1 in 
@@ -476,7 +486,7 @@ let rec type_exp env exp : ctyp =
     ))
 
 and typ_pack env tau' exp ctyp_as =
-  let ctyp = type_exp env exp in
+  let ctyp = norm (type_exp env exp) in
   match ctyp_as with
   | Tvar(cvar) -> (
       match cvar.def with 
@@ -489,7 +499,7 @@ and typ_pack env tau' exp ctyp_as =
       )
     )
   | Tbind(Texi, alpha, kind, tau)  -> 
-    let expected_ctyp = rename alpha tau' tau in
+    let expected_ctyp = norm (rename alpha tau' tau) in
     (match diff_typ ctyp expected_ctyp with
     | None -> ctyp_as
     | Some(subt_expr, subt_expected) ->
@@ -562,7 +572,7 @@ and cross_binding env expr = function
           let cvar = make_cvar tp_evar id_svar (Some def) in
           let nenv = add_svar nenv tp_evar cvar in*)
           let nenv = add_evar env evar ctyp in
-          Tarr(norm ctyp, cross_binding nenv expr q)
+          Tarr(ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
     | _ -> raise (complex_pattern pat)
@@ -577,10 +587,10 @@ let type_decl env (d :decl) : env * typed_decl =
     match toe with
     | Exp(styp_loc) ->
       let nenv, id = fresh_id_for env svar in
-      let _, ctyp = styp_to_ctyp nenv styp_loc in  
+      (*let _, ctyp = styp_to_ctyp nenv styp_loc in  *)
+      let kind, ctyp = type_typ nenv styp_loc in
       let def = { scope = 0 (* ??? *); typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
-      let kind = infer_kind nenv ctyp in
       let nenv = add_svar nenv svar cvar in 
       let nenv = add_cvar nenv cvar kind in
       nenv, Gtyp(cvar, Exp(kind, minimize_typ env ctyp))
