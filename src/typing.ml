@@ -123,29 +123,6 @@ let min_excluded (env,loc_env) cvar =
       with
         | Not_found -> 0
 
-  (*let _ = find_cvar env cvar in
-  let min_excluded_list id_list =
-    let n = List.length id_list in
-    let id_tab = Array.make n 0 in
-    List.iter (fun x -> if x < n then id_tab.(x) <- 1) id_list ;
-    let i = ref 0 in
-    while (!i < n && id_tab.(!i) = 0) do
-      incr i
-    done ;
-    !i
-  in
-  let id_list =
-    Tenv.fold 
-      (fun cvar_key _ ind_list ->
-        if cvar_key.name = cvar.name then (cvar.id) :: ind_list
-        else ind_list
-      )
-      env.cvar
-      []
-  in
-  let mex = min_excluded_list id_list in
-  { name = cvar.name ; id = mex ; def = cvar.def }*)
-
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
@@ -256,28 +233,6 @@ let rec type_typ env (t : styp) : kind * ctyp =
   | Trcd(labstyp_list) -> 
     Ktyp, (* I suppose? *)
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
-
-let minimize_decl env typed_decl =
-  match typed_decl with
-  | Gtyp(cvar, toe) ->
-    let env, id = fresh_id_for env (cvar.name) in
-    env,
-    Gtyp(
-      (make_cvar cvar.name id None),
-      (match toe with
-       | Exp(k, ctyp) ->
-         Exp(k, minimize_typ env ctyp)
-       | Typ(_) -> toe )
-    )
-  | Glet(evar, ctyp) -> env, Glet(evar, minimize_typ env ctyp)
-  | Gopen(cvar, evar, ctyp) ->
-    let env, id = fresh_id_for env (cvar.name) in
-    env,
-    Gopen(
-      (make_cvar cvar.name id None),
-      evar,
-      minimize_typ env ctyp 
-    )
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
