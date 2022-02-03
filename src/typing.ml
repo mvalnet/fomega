@@ -243,7 +243,8 @@ let rec type_typ env (t : styp) : kind * ctyp =
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
 
 let type_typ env styp_loc = 
-  within_loc (type_typ env) styp_loc
+  let kind, ctyp = within_loc (type_typ env) styp_loc in
+  kind, norm ctyp
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
@@ -359,11 +360,15 @@ let find_binded_type env pat exp =
   match pat.obj with
   | Pvar(evar) -> (
     match exp with
-    | Eannot(_, styp_loc) ->
-      let nenv, typ = styp_to_ctyp env styp_loc in
-      add_evar nenv evar typ, typ
-    | _ -> raise (Typing(Some(pat.loc), Annotation(evar))
-  ))
+    | Efun(_, exp_loc) ->
+      (match exp_loc.obj with 
+      | Eannot(_, styp_loc) ->
+        let nenv, typ = styp_to_ctyp env styp_loc in
+        add_evar nenv evar typ, typ
+      | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+      )
+    | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+    )
   | Ptyp(x, styp_loc) -> (
       match x.obj with 
       | Pvar(evar) -> 
@@ -403,7 +408,7 @@ let rec type_exp env exp : ctyp =
     )
   | Eproj(exp, n) -> (
     match type_exp env exp with
-      | Tprod(typ_list) -> List.nth typ_list n
+      | Tprod(typ_list) -> List.nth typ_list (n-1)
       | ctyp -> raise (
         Typing(
           Some exp.loc,
@@ -411,7 +416,7 @@ let rec type_exp env exp : ctyp =
         )
       )
   )
-  | Ercd(labexp_list) ->
+  | Ercd(labexp_list) -> Format.printf "record typing\n";
     Trcd(
       map_snd (type_exp env) labexp_list
     )

@@ -197,6 +197,7 @@ and iter_diff_typ t1 t2 l1 l2 =
   | _ -> Some(t1, t2)
 
 and record_diff_typ typ1 typ2 l1 l2 =
+  Format.printf "record ping" ;
   match l1, l2 with 
   | [], [] -> None 
   | (l1, t1) :: q1, (l2, t2) :: q2 -> 
@@ -241,8 +242,9 @@ and diff_typ t1 t2 =
 
   | Tbind(b1,x1,k1,body1), Tbind(b2,x2,k2,body2) ->
     if eq_binder b1 b2 && eq_kind k1 k2 then
+      (Format.printf "here" ;
       let body1_renamed = rename x1 (Tvar x2) body1 in 
-      diff_typ body1_renamed body2
+      diff_typ body1_renamed body2)
     else Some(t1, t2)
 
   | _ -> Some(t1, t2)
