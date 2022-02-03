@@ -207,7 +207,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
     | Karr(k_arg, k_ret) ->
       if eq_kind k_arg kind2 then
         k_ret, Tapp(ctyp1, ctyp2)
-      else (Format.printf "Karr" ; raise (
+      else (raise (
         Typing(
           None,
           Kinding(t, k_arg, Nonequal(kind2))
@@ -416,7 +416,7 @@ let rec type_exp env exp : ctyp =
         )
       )
   )
-  | Ercd(labexp_list) -> Format.printf "record typing\n";
+  | Ercd(labexp_list) ->
     Trcd(
       map_snd (type_exp env) labexp_list
     )
