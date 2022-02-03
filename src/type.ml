@@ -133,7 +133,7 @@ let rec full_normal t1 =
   | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) -> 
     full_normal (rename alpha ct2 ct1)
   | Tarr(ct1, ct2) ->
-    Tarr(full_normal ct1, ct2)
+    Tarr(full_normal ct1, full_normal ct2)
   | Trcd(lab_ctyp_list) -> 
     Trcd (map_snd full_normal lab_ctyp_list)
   | Tprod(ctyp_list) ->

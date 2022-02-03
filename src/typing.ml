@@ -491,7 +491,7 @@ and typ_pack env tau' exp ctyp_as =
   | Tbind(Texi, alpha, kind, tau)  -> 
     let expected_ctyp = rename alpha tau' tau in
     (match diff_typ ctyp expected_ctyp with
-    | None -> ctyp
+    | None -> ctyp_as
     | Some(subt_expr, subt_expected) ->
       raise (
         make_showdiff_error exp.loc ctyp expected_ctyp subt_expr subt_expected
