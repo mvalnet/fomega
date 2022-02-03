@@ -137,7 +137,7 @@ let rec aux_minimize_typ (global_env, (map_to_new_cvar : cvar Senv.t)) (t :ctyp)
         try Tvar(find_svar global_env cv.name)
         with 
           | Not_found ->
-            Tvar({name = cv.name ; id = 0 ; def = None})
+            Tvar({name = cv.name ; id = 0 ; def = None}) (* STILL A PROBLEM THERE *)
            (*Format.printf "here" ; Format.printf "%s" cv.name ; raise Not_found*)
     )
     | Tprim(_) -> t
@@ -374,7 +374,7 @@ let typ_to_string = function
 
 let rec type_exp env exp : ctyp =
   match exp.obj with 
-  | Evar x -> get_evar exp env x
+  | Evar x -> norm(get_evar exp env x)
   | Eprim (Int _) -> Tprim Tint
   | Eprim (Bool _) -> Tprim Tbool
   | Eprim (String _) -> Tprim Tstring
@@ -382,7 +382,7 @@ let rec type_exp env exp : ctyp =
     let t_expr = type_exp env exp in
     let nenv, t_annot = styp_to_ctyp env styp_loc in
    ( match diff_typ t_expr t_annot with
-    | None -> t_annot
+    | None -> norm t_annot
     | Some(subt_expr, subt_annot) -> raise (
       make_showdiff_error exp.loc t_expr t_annot subt_expr subt_annot
       )
@@ -434,7 +434,7 @@ let rec type_exp env exp : ctyp =
     cross_binding env exp binding_list
   | Eappl(exp, arg_list) ->
     let t_expr = type_exp env exp in
-    apply_arg env t_expr arg_list
+    norm(apply_arg env t_expr arg_list)
   | Elet(is_rec, pat, exp1, exp2) ->
     if is_rec then 
       let nenv, binded_type = find_binded_type env pat exp1.obj in
@@ -457,7 +457,7 @@ let rec type_exp env exp : ctyp =
   | Epack(packed_styp, exp, styp_as) ->
     let env, ctyp_as = styp_to_ctyp env styp_as in
     let env, packed_ctyp = styp_to_ctyp env packed_styp in 
-    typ_pack env packed_ctyp exp ctyp_as 
+    norm(typ_pack env packed_ctyp exp ctyp_as )
   | Eopen(alpha, x, exp1, exp2) ->
     let ctyp1 = type_exp env exp1 in 
     (match ctyp1 with
@@ -467,7 +467,7 @@ let rec type_exp env exp : ctyp =
       let unpack_ctyp1 = rename beta ctyp (Tvar(cvar)) in
       let nenv = add_evar env x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
-      wf_ctyp cvar ctyp2
+      norm(wf_ctyp cvar ctyp2)
     | _ -> raise (
       Typing(
         Some exp.loc,
@@ -562,7 +562,7 @@ and cross_binding env expr = function
           let cvar = make_cvar tp_evar id_svar (Some def) in
           let nenv = add_svar nenv tp_evar cvar in*)
           let nenv = add_evar env evar ctyp in
-          Tarr(ctyp, cross_binding nenv expr q)
+          Tarr(norm ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
     | _ -> raise (complex_pattern pat)
@@ -591,7 +591,7 @@ let type_decl env (d :decl) : env * typed_decl =
       env, Gtyp(cvar,Typ(k))
   )
   | Dlet(is_rec, pat, exp) ->
-    let binded_var = find_binded_var pat in 
+    let binded_var = find_binded_var pat in
     if is_rec then
       let nenv, binded_type = find_binded_type env pat exp.obj in
       let ctyp = type_exp nenv exp in

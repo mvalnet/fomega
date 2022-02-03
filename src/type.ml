@@ -143,7 +143,7 @@ let rec full_normal t1 =
   | Tapp(ct1, ct2) -> 
     let n_ct1, n_ct2 = full_normal ct1, full_normal ct2 in 
     match n_ct1 with 
-    | Tbind(Tlam, _, _, _) -> full_normal (Tapp(ct1, ct2))
+    | Tbind(Tlam, _, _, _) -> full_normal (Tapp(n_ct1, n_ct2))
     | _ -> Tapp(ct1, ct2)
 
 let head_norm t1 = 
@@ -157,7 +157,7 @@ let head_norm t1 =
   else head_reduction t1
 
 let norm t1 = 
-  if !eager then full_normal t1
+  if !eager then full_normal (eager_expansion t1)
   else t1
 
 let eq_typ t1 t2 = compare t1 t2 = 0
