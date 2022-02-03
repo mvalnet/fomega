@@ -114,7 +114,16 @@ let f_omega loc = (Typing(Some loc, NotImplemented "F_Omega"))
 *)
 
 let min_excluded (env,loc_env) cvar =
-  let _ = find_cvar env cvar in
+  try 
+    (Senv.find cvar.name loc_env).id + 1
+  with
+    | Not_found -> 
+      try 
+        (find_svar env cvar.name).id + 1
+      with
+        | Not_found -> 0
+
+  (*let _ = find_cvar env cvar in
   let min_excluded_list id_list =
     let n = List.length id_list in
     let id_tab = Array.make n 0 in
@@ -135,18 +144,24 @@ let min_excluded (env,loc_env) cvar =
       []
   in
   let mex = min_excluded_list id_list in
-  { name = cvar.name ; id = mex ; def = cvar.def }
+  { name = cvar.name ; id = mex ; def = cvar.def }*)
 
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
-let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
-  let env = (global_env, map_to_new_name) in
+let rec aux_minimize_typ (global_env, (map_to_new_cvar : cvar Senv.t)) (t :ctyp) =
+  let env = (global_env, map_to_new_cvar) in
   match t with
     | Tvar(cv) -> (
-      try Tvar(Tenv.find cv map_to_new_name)
+      try
+        Tvar(Senv.find (cv.name) map_to_new_cvar)
       with 
-       | Not_found -> Tvar(find_svar global_env cv.name)
+       | Not_found -> 
+        try Tvar(find_svar global_env cv.name)
+        with 
+          | Not_found ->
+            Tvar({name = cv.name ; id = 0 ; def = None})
+           (*Format.printf "here" ; Format.printf "%s" cv.name ; raise Not_found*)
     )
     | Tprim(_) -> t
     | Tapp(t1, t2) -> 
@@ -160,21 +175,21 @@ let rec aux_minimize_typ (global_env, map_to_new_name) (t :ctyp) =
         aux_minimize_typ env t2
       )
     | Tprod (ctyp_l) -> 
-      Tprod(List.map (aux_minimize_typ env) ctyp_l      )
+      Tprod(List.map (aux_minimize_typ env) ctyp_l)
     | Trcd(rcd_l) ->
-      Trcd( map_snd (aux_minimize_typ env) rcd_l)
-    | Tbind(binder, binded_cvar, kind , t) ->
-      let min_binded = min_excluded (global_env, map_to_new_name) binded_cvar in
-      let new_map = Tenv.add binded_cvar min_binded map_to_new_name in
-      Tbind(binder, min_binded , kind, aux_minimize_typ (global_env,new_map) t)
-
+      Trcd(map_snd (aux_minimize_typ env) rcd_l)
+    | Tbind(binder, binded_cvar, kind, t) ->
+      let min_id = min_excluded (global_env, map_to_new_cvar) binded_cvar in
+      let new_cvar = {name = binded_cvar.name ; id = min_id ; def = None } in
+      let new_map = Senv.add (binded_cvar.name) new_cvar map_to_new_cvar in
+      Tbind(binder, new_cvar, kind, aux_minimize_typ (global_env,new_map) t)
 
 (** [do_minimize] tells whether types should be minimized. It defaults to
    [true] and may be changed with the `--rawtypes` command line option, *)
 let do_minimize = spec_true "--rawtypes"  "Do not minimize types"
 
-let minimize_typ env t = t
-  (*if !do_minimize then aux_minimize_typ (env, Tenv.empty) t else t*)
+let minimize_typ env t =
+  if !do_minimize then aux_minimize_typ (env, Senv.empty) t else t
 
 (** [type_typ env t] typechecks source type [t] returning its kind [k] and
    an internal representation of [t].  This may non-localized (Unbound and
@@ -241,6 +256,28 @@ let rec type_typ env (t : styp) : kind * ctyp =
   | Trcd(labstyp_list) -> 
     Ktyp, (* I suppose? *)
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
+
+let minimize_decl env typed_decl =
+  match typed_decl with
+  | Gtyp(cvar, toe) ->
+    let env, id = fresh_id_for env (cvar.name) in
+    env,
+    Gtyp(
+      (make_cvar cvar.name id None),
+      (match toe with
+       | Exp(k, ctyp) ->
+         Exp(k, minimize_typ env ctyp)
+       | Typ(_) -> toe )
+    )
+  | Glet(evar, ctyp) -> env, Glet(evar, minimize_typ env ctyp)
+  | Gopen(cvar, evar, ctyp) ->
+    let env, id = fresh_id_for env (cvar.name) in
+    env,
+    Gopen(
+      (make_cvar cvar.name id None),
+      evar,
+      minimize_typ env ctyp 
+    )
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
@@ -365,7 +402,6 @@ let rec rename_svar tau alpha tau' =
     else
       Tbind(binder, svar, kind, rename_svar styp alpha tau')    
 
-(* WARNIGN If many annotation, have to find a way out *)
 let rec find_binded_var pat =
   match pat.obj with
   | Pvar(evar) -> evar
@@ -604,13 +640,13 @@ let type_decl env (d :decl) : env * typed_decl =
     match toe with
     | Exp(styp_loc) ->
       let env, id = fresh_id_for env svar in
-      let nenv, ctyp = styp_to_ctyp env styp_loc in  
+      let _, ctyp = styp_to_ctyp env styp_loc in  
       let def = { scope = 0 (* ??? *); typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
-      let kind = infer_kind nenv ctyp in
-      let nenv = add_svar nenv svar cvar in 
+      let kind = infer_kind env ctyp in
+      let nenv = add_svar env svar cvar in 
       let nenv = add_cvar nenv cvar kind in
-      nenv, Gtyp(cvar, Exp(kind, ctyp))
+      nenv, Gtyp(cvar, Exp(kind, minimize_typ env ctyp))
 
     | Typ(k) ->
       let env, id = fresh_id_for env svar in
@@ -633,7 +669,7 @@ let type_decl env (d :decl) : env * typed_decl =
     )
     else 
       let ctyp = type_exp env exp in 
-      (add_evar env binded_var ctyp), Glet(binded_var, ctyp)
+      (add_evar env binded_var ctyp), Glet(binded_var, minimize_typ env ctyp)
         
   | Dopen(svar, evar, exp) ->
     let ctyp = type_exp env exp in 
@@ -649,46 +685,8 @@ let type_decl env (d :decl) : env * typed_decl =
       )
     )
 
-let typed_decl_env env typed_decl =
-  match typed_decl with
-  | Gtyp(cvar, toe) ->
-    let env, id = fresh_id_for env (cvar.name) in
-    env, Gtyp((make_cvar cvar.name id None), toe)
-  | Glet(evar, ctyp) -> env, typed_decl
-  | _ ->  raise (Typing(None, NotImplemented "F_Omega"))
-
-let minimizing_def env typed_decl =
-  match typed_decl with
-  | Gtyp(cvar, toe) ->
-    Gtyp(cvar,
-    match toe with
-    | Exp(k, ctyp) ->
-      Exp(k, minimize_typ env ctyp)
-    | Typ(k) -> toe
-    )
-  | Glet(evar, ctyp) ->
-    Glet(evar, minimize_typ env ctyp)
-  | _ -> raise (Typing(None, NotImplemented "F_Omega"))
-
 let type_program env (p : program) : env * typed_decl list =
-  let env, typed_decl_list = List.fold_left_map type_decl env p in
-  env, typed_decl_list
-  (*let nenv, typed_decl_list =
-  List.fold_left
-    (fun (env,l) typed_decl -> 
-      let nenv, ntyped_decl = (typed_decl_env env typed_decl) in
-      nenv, ntyped_decl :: l)
-    (env,[])
-    typed_decl_list    
-  in 
-  let ntyped_decl_list =
-    List.fold_left
-      (fun l typed_decl ->
-        (minimizing_def nenv typed_decl) :: l)
-      []
-      typed_decl_list
-  in
-  nenv, ntyped_decl_list*)
+  List.fold_left_map type_decl env p
 
 
 (** Initial environment *)

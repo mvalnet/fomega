@@ -76,32 +76,12 @@ let _lazy =
   spec_add "--lazy" (Arg.Clear eager)
     "Lazy definition expansion and reduction to head normal forms"
 
-let norm t1 = t1
-let eq_typ t1 t2 = compare t1 t2 = 0
-(* compare (norm t1) (norm t2) for Task 4*)
-
-let eq_binder b1 b2 =
-  match b1, b2 with
-  | Tlam, Tlam | Tall, Tall | Texi, Texi -> true
-  | _ -> false
-
-
-
-let eq_prim p1 p2 =
-  match p1, p2 with
-  | Tint, Tint | Tbool, Tbool
-  | Tstring, Tstring | Tunit, Tunit -> true
-  | _ -> false
-
-let print_prim p =
-  match p with
-  | Tint -> "int"
-  | Tbool -> "bool"
-  | Tstring -> "string"
-  | Tunit -> "unit"
 
 let struct_eq_cvar c1 c2 =
   c1.name = c2.name && c1.id = c2.id
+
+(** [rename] replaces every occurrence of the first argument by
+   the second argument in the body of the third argument **)
 let rec rename cvar cvar_ctyp ctyp =
   match ctyp with 
   | Tvar(cvar') -> 
@@ -129,6 +109,53 @@ let rec rename cvar cvar_ctyp ctyp =
     if (binded_cvar.name) = (cvar.name) then ctyp
     else
       Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp)
+
+let rec full_normal t1 = 
+  match t1 with 
+  | Tvar(_) | Tprim(_) -> t1
+  | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) -> 
+    full_normal (rename alpha ct2 ct1)
+  | Tarr(ct1, ct2) ->
+    Tarr(full_normal ct1, ct2)
+  | Trcd(lab_ctyp_list) -> 
+    Trcd (map_snd full_normal lab_ctyp_list)
+  | Tprod(ctyp_list) ->
+    Tprod (List.map full_normal ctyp_list)
+  | Tbind(binder, alpha, kind, ctyp) -> 
+    Tbind(binder, alpha, kind, full_normal ctyp)
+  | Tapp(ct1, ct2) -> 
+    let n_ct1, n_ct2 = full_normal ct1, full_normal ct2 in 
+    match n_ct1 with 
+    | Tbind(Tlam, _, _, _) -> full_normal (Tapp(ct1, ct2))
+    | _ -> Tapp(ct1, ct2)
+
+let head_norm t1 = 
+  let rec head_reduction t1 =
+    match t1 with
+    | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) -> 
+      head_reduction (rename alpha ct2 ct1)
+    | _ -> t1
+  in
+  if !eager then t1
+  else head_reduction t1
+
+let norm t1 = 
+  if !eager then full_normal t1
+  else t1
+
+let eq_typ t1 t2 = compare t1 t2 = 0
+(* compare (norm t1) (norm t2) for Task 4*)
+
+let eq_binder b1 b2 =
+  match b1, b2 with
+  | Tlam, Tlam | Tall, Tall | Texi, Texi -> true
+  | _ -> false
+
+let eq_prim p1 p2 =
+  match p1, p2 with
+  | Tint, Tint | Tbool, Tbool
+  | Tstring, Tstring | Tunit, Tunit -> true
+  | _ -> false
 
 let rec eq_cvar v1 v2 =
   if v1.name = v2.name && v1.id = v2.id then None 
@@ -167,7 +194,16 @@ and record_diff_typ typ1 typ2 l1 l2 =
 and diff_typ t1 t2 = 
   match t1, t2 with
   | Tvar(v1), Tvar(v2) -> eq_cvar v1 v2
-  
+  | Tvar(v1), _ -> (
+      match v1.def with
+      | Some def -> diff_typ def.typ t2
+      | None -> Some(t1,t2)
+  )
+  | _, Tvar(v2) -> (
+      match v2.def with
+      | Some def -> diff_typ t1 def.typ
+      | None -> Some(t1,t2)
+  )  
   | Tprim(p1), Tprim(p2) -> 
     if eq_prim p1 p2 then None
     else Some(t1, t2)
