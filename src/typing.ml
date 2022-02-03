@@ -252,25 +252,7 @@ let rec wf_ctyp env t : ctyp =
      if true then t else raise (Escape a)
   | _ -> t
 
-(* __________________________ 3. Eager expansion __________________________ *)
-
-let rec eager_expansion ctyp = 
-  match ctyp with 
-  | Tvar(cvar) -> (
-    match cvar.def with 
-      | None -> ctyp
-      | Some(def) -> eager_expansion def.typ
-    )
-  | Tprim(_) -> ctyp
-  | Tarr(ctyp1, ctyp2) -> Tarr(eager_expansion ctyp1, eager_expansion ctyp2)
-  | Tapp(ctyp1, ctyp2) -> Tapp(eager_expansion ctyp1, eager_expansion ctyp2)
-  | Tprod(typ_list) -> Tprod (List.map eager_expansion typ_list)
-  | Trcd(labctyp_list) -> Trcd (map_snd eager_expansion labctyp_list)
-
-  | _ -> failwith ""
-
-
-(* __________________________ 4. Type checking __________________________ *)
+(* __________________________ 3. Type checking __________________________ *)
 
 let (!@) = Locations.with_loc  
 let (!@-) = Locations.dummy_located
@@ -594,12 +576,12 @@ let type_decl env (d :decl) : env * typed_decl =
   | Dtyp(svar, toe) -> (
     match toe with
     | Exp(styp_loc) ->
-      let env, id = fresh_id_for env svar in
-      let _, ctyp = styp_to_ctyp env styp_loc in  
+      let nenv, id = fresh_id_for env svar in
+      let _, ctyp = styp_to_ctyp nenv styp_loc in  
       let def = { scope = 0 (* ??? *); typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
-      let kind = infer_kind env ctyp in
-      let nenv = add_svar env svar cvar in 
+      let kind = infer_kind nenv ctyp in
+      let nenv = add_svar nenv svar cvar in 
       let nenv = add_cvar nenv cvar kind in
       nenv, Gtyp(cvar, Exp(kind, minimize_typ env ctyp))
 

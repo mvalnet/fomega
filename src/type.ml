@@ -110,6 +110,23 @@ let rec rename cvar cvar_ctyp ctyp =
     else
       Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp)
 
+(* ____________________________ Eager and lazy modes ____________________________ *)
+
+let rec eager_expansion ctyp = 
+  match ctyp with 
+  | Tvar(cvar) -> (
+    match cvar.def with 
+      | None -> ctyp
+      | Some(def) -> eager_expansion def.typ
+    )
+  | Tprim(_) -> ctyp
+  | Tarr(ctyp1, ctyp2) -> Tarr(eager_expansion ctyp1, eager_expansion ctyp2)
+  | Tapp(ctyp1, ctyp2) -> Tapp(eager_expansion ctyp1, eager_expansion ctyp2)
+  | Tprod(typ_list) -> Tprod (List.map eager_expansion typ_list)
+  | Trcd(labctyp_list) -> Trcd (map_snd eager_expansion labctyp_list)
+  | Tbind(binder, cvar, kind, ctyp) -> 
+    Tbind(binder, cvar, kind, eager_expansion ctyp)
+
 let rec full_normal t1 = 
   match t1 with 
   | Tvar(_) | Tprim(_) -> t1
