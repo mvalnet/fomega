@@ -178,7 +178,9 @@ let rec eq_cvar v1 v2 =
   if v1.name = v2.name && v1.id = v2.id then None 
   else (
     match v1.def, v2.def with 
-    | None, None -> Some(Tvar v1, Tvar v2) 
+    | None, None ->
+      Format.printf "%s%n vs %s%n" v1.name v1.id v2.name v2.id;
+      Some(Tvar v1, Tvar v2) 
     | Some(def1), None -> diff_typ def1.typ (Tvar v2) 
     | None, Some(def2) -> diff_typ (Tvar v1) def2.typ
     | Some(def1), Some(def2) -> diff_typ def1.typ def2.typ

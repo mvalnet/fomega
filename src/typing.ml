@@ -355,12 +355,31 @@ let rec find_binded_var pat =
   | Pvar(evar) -> evar
   | Ptyp(pat, _) -> find_binded_var pat
   | _ -> raise (complex_pattern pat)
-
+(*
 let find_binded_type env pat exp =
   match pat.obj with
   | Pvar(evar) -> (
     match exp with
     | Efun(_, exp_loc) ->
+      (match exp_loc.obj with 
+      | Eannot(_, styp_loc) -> None
+      | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+      )
+    | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+    )
+  | Ptyp(x, styp_loc) -> (
+      match x.obj with 
+      | Pvar(evar) -> Some(styp_loc)
+      | _ -> raise (complex_pattern pat)
+  )
+ | _ -> raise (complex_pattern pat)
+
+ *)
+let find_binded_type env pat exp =
+  match pat.obj with
+  | Pvar(evar) -> (
+    match exp with
+    | Efun(args, exp_loc) -> (* partnership with cross_binding to get the type *)
       (match exp_loc.obj with 
       | Eannot(_, styp_loc) ->
         let nenv, typ = styp_to_ctyp env styp_loc in
@@ -451,7 +470,7 @@ let rec type_exp env exp : ctyp =
     let t_expr = type_exp env exp in
     norm(apply_arg env t_expr arg_list)
   | Elet(is_rec, pat, exp1, exp2) ->
-    if is_rec then 
+    if is_rec then
       let nenv, binded_type = find_binded_type env pat exp1.obj in
       let t_expr1 = type_exp nenv exp1 in
       (match diff_typ t_expr1 binded_type with 
@@ -479,7 +498,7 @@ let rec type_exp env exp : ctyp =
     | Tbind(Texi, beta, kind, ctyp) ->
       let env, id = fresh_id_for env alpha in 
       let cvar = make_cvar alpha id None in
-      let unpack_ctyp1 = rename beta ctyp (Tvar(cvar)) in
+      let unpack_ctyp1 = rename beta (Tvar(cvar)) ctyp in
       let nenv = add_evar env x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
       norm(wf_ctyp cvar ctyp2)
