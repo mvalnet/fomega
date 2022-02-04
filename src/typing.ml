@@ -25,12 +25,14 @@ open Error
 type env = {
     evar : ctyp Senv.t;
     svar : cvar Senv.t;
+    pvar : (int list) Senv.t ;
     cvar : kind Tenv.t;
 }
 
 let empty_env = {
     evar = Senv.empty;
     svar = Senv.empty;
+    pvar = Senv.empty;
     cvar = Tenv.empty;
 }
 
@@ -39,12 +41,15 @@ let empty_env = {
    exception [Not_found] when their argument is not in the environment. *)
 let find_cvar env a =  Tenv.find a env.cvar
 let find_evar env x = Senv.find x env.evar
+let find_pvar env x = Senv.find x env.pvar
 let find_svar env s = Senv.find s env.svar
 
 (** Functions to modify the environment accordingly. Same semantics as maps,
    except for the order of arguments. *)
 let add_evar env x t = { env with evar = Senv.add x t env.evar }
 let add_cvar env a k = { env with cvar = Tenv.add a k env.cvar }
+
+let add_pvar env a s = { env with pvar = Senv.add a s env.pvar }
 
 (** [add_svar] must also deal with shallow bindings *)
 let add_svar env s a = { env with svar = Senv.add s a env.svar }
@@ -54,6 +59,44 @@ let add_svar env s a = { env with svar = Senv.add s a env.svar }
    [a] given the already allocated variables in [env]. Depending on the
    implementation, it may need to store information in env, hence it returns
    a possibly modified version of [env] *)
+
+let is_number (c : char) = String.contains "0123456789" c
+
+let integer_suffix _a = 
+  let n = String.length _a in
+  let i = ref (n - 1) in 
+  while is_number _a.[!i] do
+    decr i;
+  done ;
+  String.sub _a 0 !i, String.sub _a !i (n - !i)
+
+let smallest_available int_list = 
+  let n = List.length int_list in 
+  let used_int = Array.make n 0 in 
+  List.iter (fun x -> if x < n then used_int.(x) <- 1) int_list ;
+  let i = ref 0 in
+  while !i < n && used_int.(!i) = 1 do 
+    incr i ;
+  done ;
+  !i
+
+(* Take care, it doesn't work
+We do not need to find the smallest available suffix,
+but the smallest available suffix starting similarly *)
+let fresh_id_for_T3 env _a =
+  let prefix, suffix = integer_suffix _a in
+  let nenv, id = 
+  try 
+    let available_suffix = find_pvar env prefix in
+    let id = smallest_available available_suffix in
+    (*let fresh_suffix = (suffix) + 1 in *)
+    let nenv = add_pvar env prefix (id :: available_suffix) in
+    nenv, id
+  with
+    Not_found -> add_pvar env prefix [0], 0
+  in 
+  add_svar nenv _a { name = _a ; id ; def = None }, id
+
 
 (** Assuming source type variables never end with an integer, a simple correct 
     implementation of [fresh_id_for] *)

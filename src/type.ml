@@ -112,20 +112,45 @@ let rec rename cvar cvar_ctyp ctyp =
 
 (* ____________________________ Eager and lazy modes ____________________________ *)
 
-let rec eager_expansion ctyp = 
+let rec eager_expansion ctyp : ctyp * bool = 
   match ctyp with 
   | Tvar(cvar) -> (
     match cvar.def with 
-      | None -> ctyp
-      | Some(def) -> eager_expansion def.typ
+      | None -> ctyp, false
+      | Some(def) -> fst (eager_expansion def.typ), true
     )
-  | Tprim(_) -> ctyp
-  | Tarr(ctyp1, ctyp2) -> Tarr(eager_expansion ctyp1, eager_expansion ctyp2)
-  | Tapp(ctyp1, ctyp2) -> Tapp(eager_expansion ctyp1, eager_expansion ctyp2)
-  | Tprod(typ_list) -> Tprod (List.map eager_expansion typ_list)
-  | Trcd(labctyp_list) -> Trcd (map_snd eager_expansion labctyp_list)
+  | Tprim(_) -> ctyp, false 
+  | Tarr(ctyp1, ctyp2) -> 
+    let exp_ctyp1, b1 = eager_expansion ctyp1 in
+    let exp_ctyp2, b2 = eager_expansion ctyp2 in
+    Tarr(exp_ctyp1, exp_ctyp2), b1 || b2
+  | Tapp(ctyp1, ctyp2) -> 
+    let exp_ctyp1, b1 = eager_expansion ctyp1 in
+    let exp_ctyp2, b2 = eager_expansion ctyp2 in
+    Tapp(exp_ctyp1, exp_ctyp2), b1 || b2
+  | Tprod(typ_list) ->
+    let b, expand_typ_list = 
+    List.fold_left_map 
+      (fun b ctyp -> 
+        let expand_ctyp, b' = eager_expansion ctyp in 
+        b || b', expand_ctyp)
+      false
+      typ_list
+    in 
+    Tprod(expand_typ_list), b
+  | Trcd(labctyp_list) ->
+    let b, expand_typ_list = 
+    List.fold_left_map 
+      (fun b (lab,ctyp) -> 
+        let expand_ctyp, b' = eager_expansion ctyp in 
+        b || b', (lab, expand_ctyp))
+      false
+      labctyp_list
+    in 
+    Trcd(expand_typ_list), b
   | Tbind(binder, cvar, kind, ctyp) -> 
-    Tbind(binder, cvar, kind, eager_expansion ctyp)
+    let exp_ctyp, b = eager_expansion ctyp in 
+    Tbind(binder, cvar, kind, exp_ctyp), b
 
 let rec full_normal t1 = 
   match t1 with 
@@ -156,17 +181,25 @@ let rec print_parsed t1 =
     | _ -> ""
 
 let head_norm t1 = 
-  let rec head_reduction t1 =
-    match t1 with
+  let rec head_reduction t =
+    match t with
     | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) -> 
-      head_reduction (rename alpha ct2 ct1)
-    | _ -> t1
+      let b, reduct_t1 = head_reduction (rename alpha ct2 ct1) in
+      true, reduct_t1
+    | Tapp(t1, t2) ->
+      let is_reduct_t1, reduct_t1 = head_reduction t1 in 
+      if is_reduct_t1 then 
+        head_reduction (Tapp(reduct_t1, t2))
+      else false, Tapp(t1, t2)
+    | _ -> false, t1
   in
   if !eager then t1
-  else head_reduction t1
+  else snd (head_reduction t1)
 
 let norm t1 = 
-  if !eager then full_normal (eager_expansion t1)
+  if !eager then
+    let expand_t1, _  = eager_expansion t1 in 
+    full_normal expand_t1
   else t1
 
 let eq_typ t1 t2 = compare t1 t2 = 0
@@ -218,6 +251,7 @@ and record_diff_typ typ1 typ2 l1 l2 =
   | _ -> Some(typ1, typ2)
 
 and diff_typ t1 t2 = 
+  let t1, t2 = head_norm t1, head_norm t2 in 
   match t1, t2 with
   | Tvar(v1), Tvar(v2) -> eq_cvar v1 v2
   | Tvar(v1), _ -> (
@@ -254,6 +288,19 @@ and diff_typ t1 t2 =
       diff_typ body1_renamed body2
     else Some(t1, t2)
   | Tprim Tunit, Tprod [] | Tprod [], Tprim Tunit -> None
+  | Tapp(typ1, typ2), _ ->
+    let typ1_expand, b = eager_expansion typ1 in 
+    Format.printf "bwoup" ;
+    if b then diff_typ (Tapp(typ1_expand, typ2)) t2
+    else Some(t1, t2)
 
-  | _ -> Some(t1, t2)
+  | _, Tapp(typ1, typ2) ->
+    let typ1_expand, b = eager_expansion typ1 in 
+    
+    if b then( Format.printf "bwap" ; diff_typ t1 (Tapp(typ1_expand, typ2)))
+    else Some(t1, t2)
+
+  | _ ->
+    
+   Some(t1, t2)
 
