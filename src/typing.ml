@@ -303,10 +303,10 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     nenv, Trcd(labc_list)
   | Tbind(b, var, kind, styp) ->
     let nenv, id = fresh_id_for env var in
-    let nenv, ctyp = svar_to_cvar nenv styp in
+    let _, ctyp = svar_to_cvar nenv styp in
     let def = { scope = -1 ; typ = ctyp } in
     let cvar = {name = var ; id ; def = Some def } in
-    nenv, Tbind(b, cvar, kind, ctyp )
+    env, Tbind(b, cvar, kind, ctyp )
 
 let styp_to_ctyp env styp =
   let env, ctyp = within_loc (within_typ (svar_to_cvar env)) styp in 
@@ -481,19 +481,19 @@ let rec type_exp env exp : ctyp =
     let env, packed_ctyp = styp_to_ctyp env packed_styp in
     norm(typ_pack env packed_ctyp exp ctyp_as )
   | Eopen(alpha, x, exp1, exp2) ->
-    let ctyp1 = type_exp env exp1 in 
-    (match ctyp1 with
-    | Tbind(Texi, beta, kind, ctyp) ->
+    let exi_ctyp1 = type_exp env exp1 in 
+    (match exi_ctyp1 with
+    | Tbind(Texi, beta, kind, ctyp1) ->
       let env, id = fresh_id_for env alpha in 
       let cvar = make_cvar alpha id None in
-      let unpack_ctyp1 = rename beta (Tvar(cvar)) ctyp in
+      let unpack_ctyp1 = rename beta (Tvar(cvar)) ctyp1 in
       let nenv = add_evar env x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
       norm(wf_ctyp cvar ctyp2)
     | _ -> raise (
       Typing(
         Some exp.loc,
-         Expected(ctyp1, Matching(Sexi))
+         Expected(exi_ctyp1, Matching(Sexi))
       )
     ))
 
