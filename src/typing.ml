@@ -284,7 +284,7 @@ let rec wf_ctyp env t : ctyp =
         wf_ctyp env (rename alpha t2 t1_body )
       | _ -> raise (Escape cvar)
     )
-  | Tarr(t1, t2) -> Tapp(wf_ctyp env t1, wf_ctyp env t2)
+  | Tarr(t1, t2) -> Tarr(wf_ctyp env t1, wf_ctyp env t2)
   | Tprod(typ_list) -> Tprod(List.map (wf_ctyp env) typ_list)
   | Trcd(lab_typ_list) -> Trcd(map_snd (wf_ctyp env) lab_typ_list)
   | Tbind(binder, cvar, kind, ctyp) ->
@@ -519,7 +519,7 @@ let rec type_exp env exp : ctyp =
       (try 
         norm(wf_ctyp env ctyp2)
       with 
-        | Escape cvar -> raise (Typing(Some exp2.loc, Escaping(ctyp2,cvar)))
+        | Escape cvar -> raise (Typing(Some exp.loc, Escaping(ctyp2,cvar)))
       )
     | _ -> raise (
       Typing(
