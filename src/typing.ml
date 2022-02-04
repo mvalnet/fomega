@@ -272,7 +272,7 @@ let (!@-) = Locations.dummy_located
 let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   match scar with
   | Tvar(v) -> env,
-    let cvar = get_svar env v in 
+    let cvar = get_svar env v in
     if v = "int" && (cvar.id = 0) then Tprim Tint 
     else if v = "bool" && (cvar.id = 0) then Tprim Tbool
     else if v = "string" && (cvar.id = 0) then Tprim Tstring
@@ -315,13 +315,7 @@ let styp_to_ctyp env styp =
 let make_showdiff_error loc cur exp sub_cur sub_exp =
   Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
 
-
-let is_pvar x = 
-  match x.obj with
-  | Pvar(_) -> true
-  | _ -> false
-
-let rec rename_svar tau alpha tau' = 
+(* let rec rename_svar tau alpha tau' = 
   match tau with
   | Tvar(x) -> 
     if x = alpha then tau'
@@ -349,11 +343,13 @@ let rec rename_svar tau alpha tau' =
     if svar = alpha then tau
     else
       Tbind(binder, svar, kind, rename_svar styp alpha tau')    
-
+ *)
 let rec find_binded_var pat =
   match pat.obj with
-  | Pvar(evar) -> evar
-  | Ptyp(pat, _) -> find_binded_var pat
+  | Pvar(evar) -> evar, None 
+  | Ptyp(pat, t_annot) ->
+    let binded_var, _ = find_binded_var pat in
+    binded_var,  Some t_annot
   | _ -> raise (complex_pattern pat)
 (*
 let find_binded_type env pat exp =
@@ -375,27 +371,6 @@ let find_binded_type env pat exp =
  | _ -> raise (complex_pattern pat)
 
  *)
-let find_binded_type env pat exp =
-  match pat.obj with
-  | Pvar(evar) -> (
-    match exp with
-    | Efun(args, exp_loc) -> (* partnership with cross_binding to get the type *)
-      (match exp_loc.obj with 
-      | Eannot(_, styp_loc) ->
-        let nenv, typ = styp_to_ctyp env styp_loc in
-        add_evar nenv evar typ, typ
-      | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
-      )
-    | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
-    )
-  | Ptyp(x, styp_loc) -> (
-      match x.obj with 
-      | Pvar(evar) -> 
-        let nenv, typ = styp_to_ctyp env styp_loc in
-        add_evar nenv evar typ, typ
-      | _ -> raise (complex_pattern pat)
-  )
- | _ -> raise (complex_pattern pat)
 
 let typ_to_string = function
   | Tvar(_) -> "tvar"
@@ -465,7 +440,7 @@ let rec type_exp env exp : ctyp =
   )
 
   | Efun(binding_list, exp) ->
-    cross_binding env exp binding_list
+    cross_binding env (Exp exp) binding_list
   | Eappl(exp, arg_list) ->
     let t_expr = type_exp env exp in
     norm(apply_arg env t_expr arg_list)
@@ -483,10 +458,23 @@ let rec type_exp env exp : ctyp =
         )
       ) 
     else 
-      let binded_var = find_binded_var pat in
-      let t_expr1 = type_exp env exp1 in 
-      let nenv = add_evar env binded_var t_expr1 in
+      let binded_var, annot_var = find_binded_var pat in
+      let t_exp1 = type_exp env exp1 in
+      let nenv = 
+        match annot_var with 
+        | None -> env
+        | Some styp_annot -> 
+          let env, ctyp_annot = styp_to_ctyp env styp_annot in 
+          (match diff_typ t_exp1 ctyp_annot with
+          | None -> env
+          | Some (sub_t_exp1, sub_ctyp_annot) -> raise (
+            make_showdiff_error exp1.loc t_exp1 ctyp_annot sub_t_exp1 sub_ctyp_annot
+            )
+          )
+      in
+      let nenv = add_evar nenv binded_var t_exp1 in
       type_exp nenv exp2
+      
 
   | Epack(packed_styp, exp, styp_as) ->
     let env, ctyp_as = styp_to_ctyp env styp_as in
@@ -539,6 +527,29 @@ and typ_pack env tau' exp ctyp_as =
       )
     )
 
+
+and find_binded_type env pat exp =
+  match pat.obj with
+  | Pvar(evar) -> (
+    match exp with
+    | Efun(args, exp_loc) ->
+      (match exp_loc.obj with 
+      | Eannot(_, styp_loc) ->
+        let ctyp = cross_binding env (Typ styp_loc) args in 
+        add_evar env evar ctyp, ctyp
+      | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+      )
+    | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+    )
+  | Ptyp(x, styp_loc) -> (
+      match x.obj with 
+      | Pvar(evar) -> 
+        let nenv, typ = styp_to_ctyp env styp_loc in
+        add_evar nenv evar typ, typ
+      | _ -> raise (complex_pattern pat)
+  )
+ | _ -> raise (complex_pattern pat)
+
 and apply_arg env t_expr arg_list =
   match t_expr, arg_list with
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
@@ -577,7 +588,11 @@ and apply_arg env t_expr arg_list =
   )
 
 and cross_binding env expr = function
-  | [] -> type_exp env expr
+  | [] -> (
+      match expr with 
+      | Exp(body_exp) -> type_exp env body_exp
+      | Typ(styp_loc) -> snd (styp_to_ctyp env styp_loc)
+  )
   | (Typ(svar,kind)) :: q ->
     let nenv, id_svar = fresh_id_for env svar in 
     let cvar = make_cvar svar id_svar None in 
@@ -625,7 +640,7 @@ let type_decl env (d :decl) : env * typed_decl =
       env, Gtyp(cvar,Typ(k))
   )
   | Dlet(is_rec, pat, exp) ->
-    let binded_var = find_binded_var pat in
+    let binded_var, _ = find_binded_var pat in
     if is_rec then
       let nenv, binded_type = find_binded_type env pat exp.obj in
       let ctyp = type_exp nenv exp in
@@ -639,8 +654,21 @@ let type_decl env (d :decl) : env * typed_decl =
       )
     )
     else 
-      let ctyp = type_exp env exp in 
-      (add_evar env binded_var ctyp), Glet(binded_var, minimize_typ env ctyp)
+      let ctyp_exp = type_exp env exp in
+      let binded_var, annot_var = find_binded_var pat in
+      let nenv = 
+        match annot_var with 
+        | None -> env
+        | Some styp_annot -> 
+          let nenv, ctyp_annot = styp_to_ctyp env styp_annot in 
+          (match diff_typ ctyp_exp ctyp_annot with
+          | None -> nenv
+          | Some (sub_ctyp_exp, sub_ctyp_annot) -> raise (
+            make_showdiff_error exp.loc ctyp_exp ctyp_annot sub_ctyp_exp sub_ctyp_annot
+            )
+          )
+      in
+      (add_evar nenv binded_var ctyp_exp), Glet(binded_var, minimize_typ env ctyp_exp)
         
   | Dopen(svar, evar, exp) ->
     let ctyp = type_exp env exp in 

@@ -246,6 +246,7 @@ and diff_typ t1 t2 =
       let body1_renamed = rename x1 (Tvar x2) body1 in 
       diff_typ body1_renamed body2
     else Some(t1, t2)
+  | Tprim Tunit, Tprod [] | Tprod [], Tprim Tunit -> None
 
   | _ -> Some(t1, t2)
 
