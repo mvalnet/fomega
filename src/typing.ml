@@ -263,10 +263,33 @@ let type_typ env styp_loc =
 exception Escape of cvar
 let rec wf_ctyp env t : ctyp =
   match t with
-  | Tvar a -> 
-     (* fix me *)
-     if true then t else raise (Escape a)
-  | _ -> t
+  | Tvar cvar ->
+    (try 
+      let current_cvar = find_svar env (cvar.name) in
+      if cvar.id <> current_cvar.id then
+       raise (Escape cvar)
+      else t 
+    with Not_found | Escape _ ->
+      match cvar.def with
+      | None -> raise (Escape cvar)
+      | Some def -> wf_ctyp env def.typ
+    )
+  | Tprim _ -> t
+  | Tapp(t1, t2) ->
+    (try 
+      Tapp(wf_ctyp env t1, wf_ctyp env t2)
+    with Escape cvar -> 
+      match t1 with 
+      | Tbind(Tlam, alpha, _, t1_body) -> 
+        wf_ctyp env (rename alpha t2 t1_body )
+      | _ -> raise (Escape cvar)
+    )
+  | Tarr(t1, t2) -> Tapp(wf_ctyp env t1, wf_ctyp env t2)
+  | Tprod(typ_list) -> Tprod(List.map (wf_ctyp env) typ_list)
+  | Trcd(lab_typ_list) -> Trcd(map_snd (wf_ctyp env) lab_typ_list)
+  | Tbind(binder, cvar, kind, ctyp) ->
+    let nenv = add_svar env cvar.name cvar in 
+    Tbind(binder, cvar, kind, wf_ctyp nenv ctyp)
 
 (* __________________________ 3. Type checking __________________________ *)
 
@@ -488,12 +511,16 @@ let rec type_exp env exp : ctyp =
     let exi_ctyp1 = type_exp env exp1 in 
     (match exi_ctyp1 with
     | Tbind(Texi, beta, kind, ctyp1) ->
-      let env, id = fresh_id_for env alpha in 
+      let nenv, id = fresh_id_for env alpha in 
       let cvar = make_cvar alpha id None in
       let unpack_ctyp1 = rename beta (Tvar(cvar)) ctyp1 in
-      let nenv = add_evar env x unpack_ctyp1 in
+      let nenv = add_evar nenv x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
-      norm(wf_ctyp cvar ctyp2)
+      (try 
+        norm(wf_ctyp env ctyp2)
+      with 
+        | Escape cvar -> raise (Typing(Some exp2.loc, Escaping(ctyp2,cvar)))
+      )
     | _ -> raise (
       Typing(
         Some exp.loc,
@@ -540,7 +567,7 @@ and find_binded_type env pat exp =
       (match exp_loc.obj with 
       | Eannot(_, styp_loc) ->
         let ctyp = cross_binding env (Typ styp_loc) args in 
-        add_evar env evar ctyp, ctyp
+        add_evar env evar ctyp, norm ctyp
       | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
       )
     | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
@@ -549,7 +576,7 @@ and find_binded_type env pat exp =
       match x.obj with 
       | Pvar(evar) -> 
         let nenv, typ = styp_to_ctyp env styp_loc in
-        add_evar nenv evar typ, typ
+        add_evar nenv evar typ, norm typ
       | _ -> raise (complex_pattern pat)
   )
  | _ -> raise (complex_pattern pat)
@@ -563,7 +590,7 @@ and apply_arg env t_expr arg_list =
     apply_arg nenv ctyp arg_list 
   | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in
-      (match diff_typ t_arg1 t1 with
+      (match diff_typ t_arg1 (norm t1) with
       | None -> apply_arg env t2 arg_list
       | Some(subt_arg1, sub_t1) -> raise (
         make_showdiff_error arg1.loc t_arg1 t1 subt_arg1 sub_t1
@@ -632,16 +659,18 @@ let type_decl env (d :decl) : env * typed_decl =
       let nenv, id = fresh_id_for env svar in
       (*let _, ctyp = styp_to_ctyp nenv styp_loc in  *)
       let kind, ctyp = type_typ nenv styp_loc in
+      let ctyp = norm ctyp in
       let def = { scope = 0 (* ??? *); typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
       let nenv = add_svar nenv svar cvar in 
       let nenv = add_cvar nenv cvar kind in
       nenv, Gtyp(cvar, Exp(kind, minimize_typ env ctyp))
 
-    | Typ(k) ->
+    | Typ(kind) ->
       let env, id = fresh_id_for env svar in
       let cvar = make_cvar svar id None in
-      env, Gtyp(cvar,Typ(k))
+      let nenv = add_cvar env cvar kind in
+      nenv, Gtyp(cvar,Typ(kind))
   )
   | Dlet(is_rec, pat, exp) ->
     let binded_var, _ = find_binded_var pat in
@@ -679,8 +708,8 @@ let type_decl env (d :decl) : env * typed_decl =
     let nenv, id = fresh_id_for env svar in
     let cvar = make_cvar svar id None in 
     match ctyp with 
-    | Tbind(Texi,_,_, _) -> 
-      nenv, Gopen(cvar, evar, ctyp)
+    | Tbind(Texi,_,kind, _) -> 
+      (add_cvar nenv cvar kind), Gopen(cvar, evar, norm ctyp)
     | _ -> raise (
       Typing(
         Some d.loc,

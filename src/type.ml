@@ -130,10 +130,10 @@ let rec eager_expansion ctyp =
 let rec full_normal t1 = 
   match t1 with 
   | Tvar(_) | Tprim(_) -> t1
-  | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) -> 
+  | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
     full_normal (rename alpha ct2 ct1)
   | Tarr(ct1, ct2) ->
-    Tarr(full_normal ct1, full_normal ct2)
+    Tarr(full_normal ct1, full_normal ct2)  
   | Trcd(lab_ctyp_list) -> 
     Trcd (map_snd full_normal lab_ctyp_list)
   | Tprod(ctyp_list) ->
@@ -144,7 +144,16 @@ let rec full_normal t1 =
     let n_ct1, n_ct2 = full_normal ct1, full_normal ct2 in 
     match n_ct1 with 
     | Tbind(Tlam, _, _, _) -> full_normal (Tapp(n_ct1, n_ct2))
-    | _ -> Tapp(ct1, ct2)
+    | _ ->  Tapp(n_ct1, n_ct2)
+
+let rec print_parsed t1 =
+  match t1 with 
+    |Tprim(_) -> ""
+    | Tvar(v) -> v.name 
+    | Tapp(t1, t2) -> "app (" ^ (print_parsed t1)^ ") (" ^ (print_parsed t2) ^")"
+    | Tbind(binder, alpha, kind, ctyp) -> "lam (" ^ (alpha.name)^ ") (" ^ (print_parsed ctyp) ^")"
+
+    | _ -> ""
 
 let head_norm t1 = 
   let rec head_reduction t1 =
@@ -178,9 +187,7 @@ let rec eq_cvar v1 v2 =
   if v1.name = v2.name && v1.id = v2.id then None 
   else (
     match v1.def, v2.def with 
-    | None, None ->
-      Format.printf "%s%n vs %s%n" v1.name v1.id v2.name v2.id;
-      Some(Tvar v1, Tvar v2) 
+    | None, None -> Some(Tvar v1, Tvar v2) 
     | Some(def1), None -> diff_typ def1.typ (Tvar v2) 
     | None, Some(def2) -> diff_typ (Tvar v1) def2.typ
     | Some(def1), Some(def2) -> diff_typ def1.typ def2.typ
