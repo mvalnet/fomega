@@ -180,13 +180,17 @@ let rec type_typ env (t : styp) : kind * ctyp =
      Ktyp, Tprim c
   | Tvar(svar) ->
     let cvar = get_svar env svar in
-    let kind = find_cvar env cvar in 
-    kind,
-    if svar = "int" && (cvar.id = 0) then Tprim Tint 
-    else if svar = "bool" && (cvar.id = 0) then Tprim Tbool
-    else if svar = "string" && (cvar.id = 0) then Tprim Tstring
-    else if svar = "unit" && (cvar.id = 0) then Tprim Tunit 
-    else Tvar cvar   
+    let kind = try
+       find_cvar env cvar
+      with 
+        | Not_found -> default_kind
+    in 
+      kind,
+      if svar = "int" && (cvar.id = 0) then Tprim Tint 
+      else if svar = "bool" && (cvar.id = 0) then Tprim Tbool
+      else if svar = "string" && (cvar.id = 0) then Tprim Tstring
+      else if svar = "unit" && (cvar.id = 0) then Tprim Tunit 
+      else Tvar cvar  
   | Tarr(styp1, styp2) ->
     let kind1, ctyp1 = type_typ env styp1 in
     let kind2, ctyp2 = type_typ env styp2 in
