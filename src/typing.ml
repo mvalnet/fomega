@@ -649,7 +649,7 @@ let type_decl env (d :decl) : env * typed_decl =
       let nenv, binded_type = find_binded_type env pat exp.obj in
       let ctyp = type_exp nenv exp in
       (match diff_typ ctyp binded_type with 
-      | None -> nenv, Glet(binded_var,  type_exp nenv exp)
+      | None -> nenv, Glet(binded_var, minimize_typ env ctyp)
       | Some(sub_ctyp, sub_binded_type) -> raise (
         make_showdiff_error
         exp.loc
@@ -660,19 +660,19 @@ let type_decl env (d :decl) : env * typed_decl =
     else 
       let ctyp_exp = type_exp env exp in
       let binded_var, annot_var = find_binded_var pat in
-      let nenv = 
+      let nenv, ctyp = 
         match annot_var with 
-        | None -> env
+        | None -> env, ctyp_exp
         | Some styp_annot -> 
           let nenv, ctyp_annot = styp_to_ctyp env styp_annot in 
           (match diff_typ ctyp_exp ctyp_annot with
-          | None -> nenv
+          | None -> nenv, ctyp_annot
           | Some (sub_ctyp_exp, sub_ctyp_annot) -> raise (
             make_showdiff_error exp.loc ctyp_exp ctyp_annot sub_ctyp_exp sub_ctyp_annot
             )
           )
       in
-      (add_evar nenv binded_var ctyp_exp), Glet(binded_var, minimize_typ env ctyp_exp)
+      (add_evar nenv binded_var ctyp_exp), Glet(binded_var, minimize_typ env ctyp)
         
   | Dopen(svar, evar, exp) ->
     let ctyp = type_exp env exp in 
