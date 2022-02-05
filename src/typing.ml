@@ -68,32 +68,43 @@ let integer_suffix _a =
   while is_number _a.[!i] do
     decr i;
   done ;
-  String.sub _a 0 !i, String.sub _a !i (n - !i)
+  if !i = n - 1 then _a, String.empty 
+  else String.sub _a 0 (!i+1), String.sub _a (!i+1) (n - !i - 1)
 
-let smallest_available int_list = 
+let smallest_available suffix int_list = 
   let n = List.length int_list in 
-  let used_int = Array.make n 0 in 
-  List.iter (fun x -> if x < n then used_int.(x) <- 1) int_list ;
+  let used_int = Array.make (n+1) 0 in 
+  List.iter 
+    (fun x ->
+      if x = suffix then 
+        used_int.(0) <- 1 ;
+      if x >= suffix*10 && x < n + suffix*10 then
+        used_int.(x-suffix*10) <- 1
+    )
+    int_list ;
   let i = ref 0 in
   while !i < n && used_int.(!i) = 1 do 
     incr i ;
   done ;
   !i
 
-(* Take care, it doesn't work
-We do not need to find the smallest available suffix,
-but the smallest available suffix starting similarly *)
 let fresh_id_for_T3 env _a =
   let prefix, suffix = integer_suffix _a in
   let nenv, id = 
   try 
-    let available_suffix = find_pvar env prefix in
-    let id = smallest_available available_suffix in
-    (*let fresh_suffix = (suffix) + 1 in *)
-    let nenv = add_pvar env prefix (id :: available_suffix) in
-    nenv, id
+    let available_suffix = Senv.find prefix env.pvar in
+    let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
+    let id = smallest_available int_suffix available_suffix in
+    let new_suffix = if id = 0 then int_suffix else (int_suffix * 10 + id) in 
+    let pvar_env = Senv.add prefix (new_suffix :: available_suffix) env.pvar in
+    let nenv = { env with pvar = pvar_env} in
+    nenv,id
   with
-    Not_found -> add_pvar env prefix [0], 0
+    Not_found ->
+    let pvar_env = Senv.add prefix [0] env.pvar in
+    let nenv = { env with pvar = pvar_env} in
+    ignore (Senv.find prefix nenv.pvar) ;
+    nenv, 0
   in 
   add_svar nenv _a { name = _a ; id ; def = None }, id
 
@@ -115,7 +126,7 @@ let fresh_id_for_T2 env _a =
   add_svar env _a { name = _a ; id ; def = None }, id
 
 let fresh_id_for =
-     fresh_id_for_T2
+     fresh_id_for_T3
 
 (** [get_svar env a] is a wrapper around [find_evar env a] that turns a
    [Not_found] exception into a non-localized [Unbound] typing-error
@@ -158,7 +169,42 @@ let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
    [uid] integer field for identificatiion instead of the pair [name] and [id].)
 *)
 
-let min_excluded (env,loc_env) cvar =
+let min_excluded_I3 (env, (loc_env : cvar Senv.t)) cvar = 
+  let new_pvar =
+    Senv.fold 
+      (fun (svar : svar) cvar env_pvar ->
+        let prefix, _ = integer_suffix svar in
+        let _, suffix = integer_suffix cvar.name in
+        let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
+        let suffix_list = 
+          try 
+            Senv.find prefix env_pvar
+          with Not_found -> []
+        in
+       Senv.add prefix (int_suffix :: suffix_list) env_pvar
+      )
+      loc_env
+      env.pvar
+  in 
+  let nenv = { env with pvar = new_pvar } in
+  nenv, snd (fresh_id_for_T3 nenv cvar.name)
+
+let min_excluded_I3 (env, loc_to_suffix, loc_to_cvar) cvar = 
+  let prefix, suffix = integer_suffix cvar.name in
+  let svar_taken_suffix =
+    ( try Senv.find prefix env.pvar with Not_found -> [])
+    @ 
+    (try (Senv.find prefix loc_to_suffix) with Not_found -> [])
+  in
+  let new_pvar = Senv.add prefix svar_taken_suffix env.pvar in 
+  let nenv = { env with pvar = new_pvar } in
+  let id = snd (fresh_id_for_T3 nenv cvar.name) in 
+  let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
+  let new_suffix = if id = 0 then int_suffix else (int_suffix * 10 + id) in 
+  new_suffix, id
+  
+
+let min_excluded_I2 (env,loc_env) cvar =
   try 
     (Senv.find cvar.name loc_env).id + 1
   with
@@ -168,15 +214,17 @@ let min_excluded (env,loc_env) cvar =
       with
         | Not_found -> 0
 
+(* IDEA : MAP_TO_NEW_CVAR MAP A STRING TO 1) ITS NAME, 2) SUFFIX TAKEN HIGHER *)
+
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
-let rec aux_minimize_typ (global_env, map_to_new_cvar) (t :ctyp) =
-  let env = (global_env, map_to_new_cvar) in
+let rec aux_minimize_typ (global_env, (map_to_suffix : (int list) Senv.t), (map_to_new_cvar: cvar Senv.t)) (t :ctyp) =
+  let env = (global_env, map_to_suffix, map_to_new_cvar) in
   match t with
     | Tvar(cv) -> (
       try
-        Tvar(Senv.find (cv.name) map_to_new_cvar)
+        Tvar( Senv.find (cv.name) map_to_new_cvar)
       with 
        | Not_found -> 
         try Tvar(find_svar global_env cv.name)
@@ -202,17 +250,27 @@ let rec aux_minimize_typ (global_env, map_to_new_cvar) (t :ctyp) =
     | Trcd(rcd_l) ->
       Trcd(map_snd (aux_minimize_typ env) rcd_l)
     | Tbind(binder, binded_cvar, kind, t) ->
-      let min_id = min_excluded (global_env, map_to_new_cvar) binded_cvar in
+      let new_suffix, min_id = min_excluded_I3 (global_env, map_to_suffix, map_to_new_cvar) binded_cvar in
       let new_cvar = {name = binded_cvar.name ; id = min_id ; def = None } in
-      let new_map = Senv.add (binded_cvar.name) new_cvar map_to_new_cvar in
-      Tbind(binder, new_cvar, kind, aux_minimize_typ (global_env,new_map) t)
+      let prefix, _ = integer_suffix binded_cvar.name in
+      let taken_suffix =
+        try Senv.find prefix map_to_suffix with 
+        | _ -> [] in
+      let new_suffix_map =
+        Senv.add
+          prefix
+          (new_suffix :: taken_suffix)
+          map_to_suffix
+      in
+      let new_cvar_map = Senv.add binded_cvar.name (new_cvar) map_to_new_cvar in
+      Tbind(binder, new_cvar, kind, aux_minimize_typ (global_env,new_suffix_map, new_cvar_map) t)
 
 (** [do_minimize] tells whether types should be minimized. It defaults to
    [true] and may be changed with the `--rawtypes` command line option, *)
 let do_minimize = spec_true "--rawtypes"  "Do not minimize types"
 
 let minimize_typ env t =
-  if !do_minimize then aux_minimize_typ (env, Senv.empty) t else t
+  if !do_minimize then aux_minimize_typ (env,Senv.empty, Senv.empty) t else t
 
 (** [type_typ env t] typechecks source type [t] returning its kind [k] and
    an internal representation of [t].  This may non-localized (Unbound and
@@ -232,7 +290,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
       if svar = "int" && (cvar.id = 0) then Tprim Tint 
       else if svar = "bool" && (cvar.id = 0) then Tprim Tbool
       else if svar = "string" && (cvar.id = 0) then Tprim Tstring
-      else if svar = "unit" && (cvar.id = 0) then Tprim Tunit 
+      else if svar = "unit" && (cvar.id = 0) then Tprod []
       else Tvar cvar  
   | Tarr(styp1, styp2) ->
     let kind1, ctyp1 = type_typ env styp1 in
@@ -286,7 +344,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
     in 
     Ktyp, Tprod(ctyp_list)
   | Trcd(labstyp_list) -> 
-    Ktyp, (* I suppose? *)
+    Ktyp,
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
 
 let type_typ env styp_loc = 
@@ -346,7 +404,7 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     if v = "int" && (cvar.id = 0) then Tprim Tint 
     else if v = "bool" && (cvar.id = 0) then Tprim Tbool
     else if v = "string" && (cvar.id = 0) then Tprim Tstring
-    else if v = "unit" && (cvar.id = 0) then Tprim Tunit 
+    else if v = "unit" && (cvar.id = 0) then Tprod []
     else Tvar cvar     
   | Tprim(x) -> env, Tprim(x)
    | Tarr(s1, s2) ->

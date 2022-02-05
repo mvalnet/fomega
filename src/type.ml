@@ -183,15 +183,16 @@ let rec print_parsed t1 =
 let head_norm t1 = 
   let rec head_reduction t =
     match t with
-    | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) -> 
+    | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
       let b, reduct_t1 = head_reduction (rename alpha ct2 ct1) in
       true, reduct_t1
     | Tapp(t1, t2) ->
       let is_reduct_t1, reduct_t1 = head_reduction t1 in 
-      if is_reduct_t1 then 
-        head_reduction (Tapp(reduct_t1, t2))
-      else false, Tapp(t1, t2)
-    | _ -> false, t1
+      if is_reduct_t1 then
+        let _, red_term = head_reduction (Tapp(reduct_t1, t2)) in 
+        true, red_term
+      else false, Tapp(reduct_t1, t2)
+    | _ -> false, t
   in
   if !eager then t1
   else snd (head_reduction t1)
@@ -250,7 +251,7 @@ and record_diff_typ typ1 typ2 l1 l2 =
     )
   | _ -> Some(typ1, typ2)
 
-and diff_typ t1 t2 = 
+and diff_typ t1 t2 =
   let t1, t2 = head_norm t1, head_norm t2 in 
   match t1, t2 with
   | Tvar(v1), Tvar(v2) -> eq_cvar v1 v2
@@ -290,14 +291,13 @@ and diff_typ t1 t2 =
   | Tprim Tunit, Tprod [] | Tprod [], Tprim Tunit -> None
   | Tapp(typ1, typ2), _ ->
     let typ1_expand, b = eager_expansion typ1 in 
-    Format.printf "bwoup" ;
     if b then diff_typ (Tapp(typ1_expand, typ2)) t2
     else Some(t1, t2)
 
   | _, Tapp(typ1, typ2) ->
     let typ1_expand, b = eager_expansion typ1 in 
     
-    if b then( Format.printf "bwap" ; diff_typ t1 (Tapp(typ1_expand, typ2)))
+    if b then( diff_typ t1 (Tapp(typ1_expand, typ2)))
     else Some(t1, t2)
 
   | _ ->
