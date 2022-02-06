@@ -7,7 +7,7 @@ open Syntax
 open Type
 open Error
 
-(**________________________ 1. Environments ____________________________*)
+(**______________________________ Environments ______________________________*)
 
 
 (** We represent the environment using maps.  (For short programs, we could
@@ -20,7 +20,8 @@ open Error
    maps internal type variables (which are never shadowed) to their kind or
    definition.
 
-   You may need to add another map in type [env] for Task 4.  *)
+  Since I implemented X1, [pvar] source a variable prefix to all non-available
+  numeral suffixes. *)
                     
 type env = {
     evar : ctyp Senv.t;
@@ -54,6 +55,33 @@ let add_pvar env a s = { env with pvar = Senv.add a s env.pvar }
 (** [add_svar] must also deal with shallow bindings *)
 let add_svar env s a = { env with svar = Senv.add s a env.svar }
 
+(** [get_svar env a] is a wrapper around [find_evar env a] that turns a
+   [Not_found] exception into a non-localized [Unbound] typing-error
+   exception.  These will have to be localized by their calling context,
+   using [within_loc]. *)
+let get_svar env a =
+  try find_svar env a
+  with Not_found -> error_unloc (Unbound (Typ (None, a)))
+                  
+(** May raise non-localized [Unbound] error *)
+let get_evar exp env x =
+  try find_evar env x
+  with Not_found -> error exp (Unbound (Exp x))
+
+let make_cvar name id def =
+  { name ; id ; def}
+let make_loc obj loc =
+  { obj ; loc}
+
+(* Useful errors function*)
+
+let complex_pattern pat = Typing(Some pat.loc, NotImplemented "Complex Pattern")
+
+let f_omega loc = Typing(Some loc, NotImplemented "F_Omega")
+
+let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
+
+(* _____________________ Fresh_id_for implementations _____________________ *)
 
 (** [fresh_id_for env a] returns the smallest possible id for variable name
    [a] given the already allocated variables in [env]. Depending on the
@@ -62,6 +90,8 @@ let add_svar env s a = { env with svar = Senv.add s a env.svar }
 
 let is_number (c : char) = String.contains "0123456789" c
 
+(** [integer_suffix _a] separates _a into its basename and its numerical 
+    suffix*)
 let integer_suffix _a = 
   let n = String.length _a in
   let i = ref (n - 1) in 
@@ -71,6 +101,14 @@ let integer_suffix _a =
   if !i = n - 1 then _a, String.empty 
   else String.sub _a 0 (!i+1), String.sub _a (!i+1) (n - !i - 1)
 
+(* [smallest_available suffix int_list] find the smallest available
+  suffix in [int_list]. It builds an array larger than [int_list]
+  and marks :
+    - index 0 if [suffix] is non-available.
+    - index i if i appended to [suffix] is non available, for i > 0.
+  It returns the lowest index for a non-marked cell corresponds
+  to the smallest index which can be appended to [suffix] without
+  shadowing. *)
 let smallest_available suffix int_list = 
   let n = List.length int_list in 
   let used_int = Array.make (n+1) 0 in 
@@ -88,6 +126,8 @@ let smallest_available suffix int_list =
   done ;
   !i
 
+(** [fresh_id_for_T3] is part of X1 implementation. Is is an implementation
+  of [fresh_id_for] which allows type variables ending with integers. *)
 let fresh_id_for_T3 env _a =
   let prefix, suffix = integer_suffix _a in
   let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
@@ -95,6 +135,7 @@ let fresh_id_for_T3 env _a =
   try 
     let available_suffix = Senv.find prefix env.pvar in
     let id = smallest_available int_suffix available_suffix in
+    (* int_suffix * 10 + id  corresponds to id appending to suffix*)
     let new_suffix = if id = 0 then int_suffix else (int_suffix * 10 + id) in 
     let pvar_env = Senv.add prefix (new_suffix :: available_suffix) env.pvar in
     let nenv = { env with pvar = pvar_env} in
@@ -103,9 +144,8 @@ let fresh_id_for_T3 env _a =
     Not_found ->
     let pvar_env = Senv.add prefix [int_suffix] env.pvar in
     let nenv = { env with pvar = pvar_env} in
-    ignore (Senv.find prefix nenv.pvar) ;
     nenv, 0
-  in 
+  in
   add_svar nenv _a { name = _a ; id ; def = None }, id
 
 
@@ -128,33 +168,10 @@ let fresh_id_for_T2 env _a =
 let fresh_id_for =
      fresh_id_for_T3
 
-(** [get_svar env a] is a wrapper around [find_evar env a] that turns a
-   [Not_found] exception into a non-localized [Unbound] typing-error
-   exception.  These will have to be localized by their calling context,
-   using [within_loc]. *)
-let get_svar env a =
-  try find_svar env a
-  with Not_found -> error_unloc (Unbound (Typ (None, a)))
-                  
-(** May raise non-localized [Unbound] error *)
-let get_evar exp env x =
-  try find_evar env x
-  with Not_found -> error exp (Unbound (Exp x))
-
-let make_cvar name id def =
-  { name ; id ; def}
-let make_loc obj loc =
-  { obj ; loc}
-
-let complex_pattern pat = Typing(Some pat.loc, NotImplemented "Complex Pattern")
-let f_omega loc = Typing(Some loc, NotImplemented "F_Omega")
-
-let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
-
-(* _________________________ 2. Type minimization _________________________ *)
+(* ___________________________ Type minimization ___________________________ *)
 
 (** Type checking must perform computation on types when checking for
-   convertibilty.  This requires appropriate renaming to avoid capture,
+   convertibilty. This requires appropriate renaming to avoid capture,
    hence generating many fresh variables, which may then disappear during
    reduction. The resulting type may thefore use large integer suffixes,
    which are unpleasant for the user to read.
@@ -184,20 +201,22 @@ let min_excluded_I3 (env, loc_to_suffix) cvar =
   new_suffix, id
   
 
+(** [min_excluded_I2 (env, loc_env) cvar] computes the min id available
+  in the union of [env] and [loc_env] for [cvar]. Not useful anymore. *)
 let min_excluded_I2 (env,loc_env) cvar =
   try 
-    (Senv.find cvar.name loc_env).id + 1
+    (Senv.find cvar.name loc_env).id + 1, 0
   with
     | Not_found -> 
       try 
-        (find_svar env cvar.name).id + 1
+        (find_svar env cvar.name).id + 1, 0
       with
-        | Not_found -> 0
+        | Not_found -> 0, 0
 
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
    respect to env [env] *)
-let rec aux_minimize_typ (global_env, (map_to_suffix : (int list) Senv.t), (map_to_new_cvar: cvar Senv.t)) (t :ctyp) =
+let rec aux_minimize_typ (global_env, map_to_suffix, map_to_new_cvar) t =
   let env = (global_env, map_to_suffix, map_to_new_cvar) in
   match t with
     | Tvar(cv) -> (
@@ -227,15 +246,26 @@ let rec aux_minimize_typ (global_env, (map_to_suffix : (int list) Senv.t), (map_
       let prefix, _ = integer_suffix binded_cvar.name in
       let taken_suffix =
         try Senv.find prefix map_to_suffix with 
-        | _ -> [] in
+        | Not_found -> []
+      in
       let new_suffix_map =
         Senv.add
           prefix
           (new_suffix :: taken_suffix)
           map_to_suffix
       in
-      let new_cvar_map = Senv.add binded_cvar.name (new_cvar) map_to_new_cvar in
-      Tbind(binder, new_cvar, kind, aux_minimize_typ (global_env,new_suffix_map, new_cvar_map) t)
+      let new_cvar_map = 
+        Senv.add 
+          binded_cvar.name
+          new_cvar
+          map_to_new_cvar
+      in
+      Tbind(
+        binder,
+        new_cvar,
+        kind,
+        aux_minimize_typ (global_env, new_suffix_map, new_cvar_map) t
+      )
 
 (** [do_minimize] tells whether types should be minimized. It defaults to
    [true] and may be changed with the `--rawtypes` command line option, *)
@@ -243,6 +273,8 @@ let do_minimize = spec_true "--rawtypes"  "Do not minimize types"
 
 let minimize_typ env t =
   if !do_minimize then aux_minimize_typ (env,Senv.empty, Senv.empty) t else t
+
+(* ___________________ Convert source to internal types ___________________ *)
 
 (** [type_typ env t] typechecks source type [t] returning its kind [k] and
    an internal representation of [t].  This may non-localized (Unbound and
@@ -252,17 +284,14 @@ let rec type_typ env (t : styp) : kind * ctyp =
   | Tprim c -> 
      Ktyp, Tprim c
   | Tvar(svar) ->
-  let cvar =
-    try 
-     get_svar env svar
-    with | Not_found -> raise Not_found
-    in
-    let kind = try
-       find_cvar env cvar
+    let cvar = get_svar env svar in
+    let kind =
+      try
+        find_cvar env cvar
       with 
         | Not_found -> default_kind
     in 
-      kind, Tvar cvar  
+    kind, Tvar cvar  
   | Tarr(styp1, styp2) ->
     let kind1, ctyp1 = type_typ env styp1 in
     let kind2, ctyp2 = type_typ env styp2 in
@@ -277,7 +306,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
     | Ktyp -> raise (
       Typing (
         None,
-        Kinding(t,kind1,Matching(Sarr))
+        Kinding(t, kind1, Matching(Sarr))
       )
      )
     | Karr(k_arg, k_ret) ->
@@ -296,7 +325,9 @@ let rec type_typ env (t : styp) : kind * ctyp =
     let nenv = add_cvar nenv cvar kind in
     let kind_body, cbody = type_typ nenv styp in
     (match binder with
-      | Tlam -> Karr(kind, kind_body), Tbind(Tlam, cvar, kind, cbody)
+      | Tlam ->
+        Karr(kind, kind_body),
+        Tbind(Tlam, cvar, kind, cbody)
       | binder -> (
         match kind_body with
         | Ktyp -> Ktyp, Tbind(binder, cvar, kind, cbody)
@@ -319,8 +350,11 @@ let rec type_typ env (t : styp) : kind * ctyp =
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
 
 let type_typ env styp_loc = 
-  let kind, ctyp = within_loc (type_typ env) styp_loc in
+  let kind, ctyp = within_loc ((type_typ env)) styp_loc in
   kind, norm ctyp
+
+
+(* _______________________ Well-formedness checking _______________________ *)
 
 (** Checking that local variables do not escape. Typechecking of
    existential types requires that locally abstract variables do not escape
@@ -332,6 +366,7 @@ let type_typ env styp_loc =
    Therefore, we must not only check for well-formedness, but return an
    equivalent type that is well-formed. This should just perform the
    necessary unfoldings and reductions. *)
+
 exception Escape of cvar
 let rec wf_ctyp env t : ctyp =
   match t with
@@ -341,7 +376,9 @@ let rec wf_ctyp env t : ctyp =
       if cvar.id <> current_cvar.id then
        raise (Escape cvar)
       else t 
-    with Not_found | Escape _ ->
+    with 
+    | Not_found -> raise (Escape cvar)
+    | Escape _ ->
       match cvar.def with
       | None -> raise (Escape cvar)
       | Some def -> wf_ctyp env def.typ
@@ -364,14 +401,11 @@ let rec wf_ctyp env t : ctyp =
 
 (* __________________________ 3. Type checking __________________________ *)
 
-let (!@) = Locations.with_loc  
-let (!@-) = Locations.dummy_located
-
 let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   match scar with
   | Tvar(v) -> env,
     let cvar = get_svar env v in
-   Tvar cvar     
+    Tvar cvar     
   | Tprim(x) -> env, Tprim(x)
    | Tarr(s1, s2) ->
     let env1, c1 = svar_to_cvar env s1 in
@@ -382,7 +416,9 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
     let env2, c2 = svar_to_cvar env1 s2 in
     env2, Tapp(c1, c2)
   | Tprod(s_list) ->
-    let nenv, c_list = List.fold_left_map svar_to_cvar env s_list in 
+    let nenv, c_list =
+      List.fold_left_map svar_to_cvar env s_list
+    in 
     nenv, Tprod(c_list)
   | Trcd(labs_list) ->
     let nenv, labc_list =
@@ -398,13 +434,12 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   | Tbind(b, var, kind, styp) ->
     let nenv, id = fresh_id_for env var in
     let _, ctyp = svar_to_cvar nenv styp in
-    let def = { scope = -1 ; typ = ctyp } in
-    let cvar = {name = var ; id ; def = Some def } in
+    let cvar = {name = var ; id ; def = None } in
     env, Tbind(b, cvar, kind, ctyp )
 
 let styp_to_ctyp env styp =
-  let env, ctyp = within_loc (within_typ (svar_to_cvar env)) styp in 
-  env, norm ctyp 
+  let k, ctyp = within_loc (within_typ (svar_to_cvar env)) styp in 
+  k, norm ctyp 
 
 let make_showdiff_error loc cur exp sub_cur sub_exp =
   Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
@@ -434,7 +469,7 @@ let rec type_exp env exp : ctyp =
   | Eprim (String _) -> Tprim Tstring
   | Eannot(exp, styp_loc) ->
     let t_expr = type_exp env exp in
-    let _, t_annot = styp_to_ctyp env styp_loc in
+    let _, t_annot = type_typ env styp_loc in
    ( match diff_typ (norm t_expr) (norm t_annot) with
     | None -> t_annot
     | Some(subt_expr, subt_annot) -> raise (
@@ -509,28 +544,26 @@ let rec type_exp env exp : ctyp =
     else 
       let binded_var, annot_var = find_binded_var pat in
       let t_exp1 = type_exp env exp1 in
-      let nenv = 
-        match annot_var with 
-        | None -> env
-        | Some styp_annot -> 
-          let env, ctyp_annot = styp_to_ctyp env styp_annot in 
-          (match diff_typ (norm t_exp1) (norm ctyp_annot) with
-          | None -> env
-          | Some (sub_t_exp1, sub_ctyp_annot) -> raise (
-            make_showdiff_error
+      (match annot_var with 
+      | None ->
+        let nenv = add_evar env binded_var t_exp1 in
+        type_exp nenv exp2
+      | Some styp_annot -> 
+        let _, ctyp_annot = type_typ env styp_annot in 
+        (match diff_typ (norm t_exp1) (norm ctyp_annot) with
+        | None -> let nenv = add_evar env binded_var t_exp1 in type_exp nenv exp2
+        | Some (sub_t_exp1, sub_ctyp_annot) -> raise (
+          make_showdiff_error
             exp1.loc 
             t_exp1 ctyp_annot 
             sub_t_exp1 sub_ctyp_annot
-            )
           )
-      in
-      let nenv = add_evar nenv binded_var t_exp1 in
-      type_exp nenv exp2
-      
+        )
+      )
 
   | Epack(packed_styp, exp, styp_as) ->
-    let env, ctyp_as = styp_to_ctyp env styp_as in
-    let env, packed_ctyp = styp_to_ctyp env packed_styp in
+    let _, ctyp_as = type_typ env styp_as in
+    let _, packed_ctyp = type_typ env packed_styp in
     let _, expand_ctyp_as = lazy_reduce_expand ctyp_as in
     norm(typ_pack env packed_ctyp exp expand_ctyp_as )
   | Eopen(alpha, x, exp1, exp2) ->
@@ -543,7 +576,6 @@ let rec type_exp env exp : ctyp =
       let unpack_ctyp1 = subst_typ beta (Tvar(cvar)) ctyp1 in
       let nenv = add_evar nenv x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
-      (*let _, expand_ctyp2 = lazy_reduce_expand ctyp2 in*)
       (try 
         norm(wf_ctyp env ctyp2)
       with 
@@ -608,8 +640,8 @@ and find_binded_type env pat exp =
   | Ptyp(x, styp_loc) -> (
       match x.obj with 
       | Pvar(evar) -> 
-        let nenv, typ = styp_to_ctyp env styp_loc in
-        add_evar nenv evar typ, norm typ
+        let _, typ = type_typ env styp_loc in
+        add_evar env evar typ, norm typ
       | _ -> raise (complex_pattern pat)
   )
  | _ -> raise (complex_pattern pat)
@@ -618,10 +650,20 @@ and apply_arg env t_expr arg_list =
   let _, expand_t_expr = lazy_reduce_expand t_expr in
   match expand_t_expr, arg_list with
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
-    let nenv, arg_ctyp = styp_to_ctyp env styp_loc in
-    (* check kind compatibility *)
-    let ctyp = subst_typ cvar arg_ctyp ctyp in
-    apply_arg nenv ctyp arg_list 
+    let arg_kind, arg_ctyp = type_typ env styp_loc in
+    if not (eq_kind arg_kind kind) then 
+      raise (Typing(
+        Some styp_loc.loc,
+        Kinding(
+          styp_loc.obj,
+          arg_kind,
+          Nonequal(kind)
+        )
+      )
+    )
+    else
+      let ctyp = subst_typ cvar arg_ctyp ctyp in
+      apply_arg env ctyp arg_list 
   | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in
       (match diff_typ (norm t_arg1) (norm t1) with
@@ -643,7 +685,7 @@ and cross_binding env expr = function
   | [] -> (
       match expr with 
       | Exp(body_exp) -> type_exp env body_exp
-      | Typ(styp_loc) -> snd (styp_to_ctyp env styp_loc)
+      | Typ(styp_loc) -> snd (type_typ env styp_loc)
   )
   | (Typ(svar,kind)) :: q ->
     let nenv, id_svar = fresh_id_for env svar in 
@@ -656,21 +698,13 @@ and cross_binding env expr = function
     | Ptyp(pat, styp_loc) -> 
       (match pat.obj with 
         | Pvar(evar) ->
-          (*let tp_evar = "temporary" in
-          let nenv, id_svar = fresh_id_for env tp_evar in*)
           let _, ctyp = styp_to_ctyp env styp_loc in
-          (*let def = { scope = -1 ; typ = ctyp } in
-          let cvar = make_cvar tp_evar id_svar (Some def) in
-          let nenv = add_svar nenv tp_evar cvar in*)
           let nenv = add_evar env evar ctyp in
           Tarr(ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
     | _ -> raise (complex_pattern pat)
   )
-
-let norm_when_eager =
-  spec_true "--loose"  "Do not force toplevel normalization in eager mode"
 
 let type_decl env (d :decl) : env * typed_decl = 
   match d.obj with
@@ -713,9 +747,9 @@ let type_decl env (d :decl) : env * typed_decl =
         match annot_var with 
         | None -> env, ctyp_exp
         | Some styp_annot -> 
-          let nenv, ctyp_annot = styp_to_ctyp env styp_annot in 
+          let _, ctyp_annot = type_typ env styp_annot in 
           (match diff_typ (norm ctyp_exp) (norm ctyp_annot) with
-          | None -> nenv, ctyp_annot
+          | None -> env, ctyp_annot
           | Some (sub_ctyp_exp, sub_ctyp_annot) -> raise (
             make_showdiff_error
               exp.loc
@@ -751,6 +785,12 @@ let type_program env (p : program) : env * typed_decl list =
 
 
 (** Initial environment *)
+
+let norm_when_eager =
+  spec_true "--loose"  "Do not force toplevel normalization in eager mode"
+
+let (!@) = Locations.with_loc  
+let (!@-) = Locations.dummy_located
   
 let unit, int, bool, string, bot =
   let unit = Tprod [] in
