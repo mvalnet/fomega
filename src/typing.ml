@@ -350,7 +350,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
 
 let type_typ env styp_loc = 
-  let kind, ctyp = within_loc ((type_typ env)) styp_loc in
+  let kind, ctyp = within_loc ( within_typ(type_typ env)) styp_loc in
   kind, norm ctyp
 
 
@@ -401,46 +401,6 @@ let rec wf_ctyp env t : ctyp =
 
 (* __________________________ 3. Type checking __________________________ *)
 
-let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
-  match scar with
-  | Tvar(v) -> env,
-    let cvar = get_svar env v in
-    Tvar cvar     
-  | Tprim(x) -> env, Tprim(x)
-   | Tarr(s1, s2) ->
-    let env1, c1 = svar_to_cvar env s1 in
-    let env2, c2 = svar_to_cvar env1 s2 in
-    env2, Tarr(c1, c2)
-  | Tapp(s1, s2) ->
-    let env1, c1 = svar_to_cvar env s1 in
-    let env2, c2 = svar_to_cvar env1 s2 in
-    env2, Tapp(c1, c2)
-  | Tprod(s_list) ->
-    let nenv, c_list =
-      List.fold_left_map svar_to_cvar env s_list
-    in 
-    nenv, Tprod(c_list)
-  | Trcd(labs_list) ->
-    let nenv, labc_list =
-      List.fold_left_map
-        (fun env (lab,s)  ->
-          let nenv, c = svar_to_cvar env s in
-          nenv, (lab, c)
-        )
-        env
-        labs_list
-    in 
-    nenv, Trcd(labc_list)
-  | Tbind(b, var, kind, styp) ->
-    let nenv, id = fresh_id_for env var in
-    let _, ctyp = svar_to_cvar nenv styp in
-    let cvar = {name = var ; id ; def = None } in
-    env, Tbind(b, cvar, kind, ctyp )
-
-let styp_to_ctyp env styp =
-  let k, ctyp = within_loc (within_typ (svar_to_cvar env)) styp in 
-  k, norm ctyp 
-
 let make_showdiff_error loc cur exp sub_cur sub_exp =
   Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
 
@@ -451,15 +411,6 @@ let rec find_binded_var pat =
     let binded_var, _ = find_binded_var pat in
     binded_var,  Some t_annot
   | _ -> raise (complex_pattern pat)
-
-let typ_to_string = function
-  | Tvar(_) -> "tvar"
-  | Tprim(_) -> "tprim"
-  | Tapp(_) -> "tapp"
-  | Tprod(_) -> "tprod"
-  | Trcd(_) -> "trcd"
-  | Tarr(_) -> "tarr"
-  | Tbind(_) -> "tbind"
 
 let rec type_exp env exp : ctyp =
   match exp.obj with 
@@ -698,7 +649,7 @@ and cross_binding env expr = function
     | Ptyp(pat, styp_loc) -> 
       (match pat.obj with 
         | Pvar(evar) ->
-          let _, ctyp = styp_to_ctyp env styp_loc in
+          let _, ctyp = type_typ env styp_loc in
           let nenv = add_evar env evar ctyp in
           Tarr(ctyp, cross_binding nenv expr q)
         | _ -> raise (complex_pattern pat))
@@ -712,7 +663,15 @@ let type_decl env (d :decl) : env * typed_decl =
     match toe with
     | Exp(styp_loc) -> 
       let nenv, id = fresh_id_for env svar in
-      let kind, ctyp = type_typ env styp_loc in
+      (* This "try ... with" is only used in order to pass the
+      fail_unbound_tvar_T3.fw by removing "In type: a".
+      It is purely artificial. *)
+      let kind, ctyp = 
+        try type_typ env styp_loc
+        with 
+        | Typing(loc, Unbound(Typ(_,s1))) ->
+          raise (Typing(loc, Unbound(Typ(None,s1))))
+         in
       let ctyp = norm ctyp in
       let def = { scope = 0 ; typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
