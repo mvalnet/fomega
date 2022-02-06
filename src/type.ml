@@ -267,12 +267,12 @@ and diff_typ t1 t2 =
   | Tvar(v1), _ -> (
       match v1.def with
       | Some def -> diff_typ def.typ t2
-      | None -> (* Format.printf "fail1" ; *)Some(t1,t2)
+      | None -> Some(t1,t2)
   )
   | _, Tvar(v2) -> (
       match v2.def with
       | Some def -> diff_typ t1 def.typ
-      | None ->(*  Format.printf "fail2: undefined %s%n" v2.name v2.id ; *) Some(t1,t2)
+      | None -> Some(t1,t2)
   )  
   | Tprim(p1), Tprim(p2) -> 
     if eq_prim p1 p2 then None
@@ -312,8 +312,8 @@ and diff_typ t1 t2 =
   | Tapp(typ1, typ2), _ ->
     let typ1_expand, b = eager_expansion typ1 in 
     if b then diff_typ (Tapp(typ1_expand, typ2)) t2
-    else ((* Format.printf "fail3" ; *) Some(t1, t2)
-)
+    else Some(t1, t2)
+
   | _, Tapp(typ1, typ2) ->
     let typ1_expand, b = eager_expansion typ1 in 
     

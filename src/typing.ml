@@ -169,26 +169,6 @@ let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
    [uid] integer field for identificatiion instead of the pair [name] and [id].)
 *)
 
-(* let min_excluded_I3 (env, (loc_env : cvar Senv.t)) cvar = 
-  let new_pvar =
-    Senv.fold 
-      (fun (svar : svar) cvar env_pvar ->
-        let prefix, _ = integer_suffix svar in
-        let _, suffix = integer_suffix cvar.name in
-        let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
-        let suffix_list = 
-          try 
-            Senv.find prefix env_pvar
-          with Not_found -> []
-        in
-       Senv.add prefix (int_suffix :: suffix_list) env_pvar
-      )
-      loc_env
-      env.pvar
-  in 
-  let nenv = { env with pvar = new_pvar } in
-  nenv, snd (fresh_id_for_T3 nenv cvar.name) *)
-
 let min_excluded_I3 (env, loc_to_suffix, loc_to_cvar) cvar = 
   let prefix, suffix = integer_suffix cvar.name in
   let svar_taken_suffix =
@@ -213,8 +193,6 @@ let min_excluded_I2 (env,loc_env) cvar =
         (find_svar env cvar.name).id + 1
       with
         | Not_found -> 0
-
-(* IDEA : MAP_TO_NEW_CVAR MAP A STRING TO 1) ITS NAME, 2) SUFFIX TAKEN HIGHER *)
 
 (** [minimize_typ env t] returns a renaming of [t] that minimizes the
    variables suffixes but still avoids shallowing internally and with
@@ -284,12 +262,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
       with 
         | Not_found -> default_kind
     in 
-      kind,
-      if svar = "int" && (cvar.id = 0) then Tprim Tint 
-      else if svar = "bool" && (cvar.id = 0) then Tprim Tbool
-      else if svar = "string" && (cvar.id = 0) then Tprim Tstring
-      else if svar = "unit" && (cvar.id = 0) then Tprod []
-      else Tvar cvar  
+      kind, Tvar cvar  
   | Tarr(styp1, styp2) ->
     let kind1, ctyp1 = type_typ env styp1 in
     let kind2, ctyp2 = type_typ env styp2 in
@@ -318,8 +291,8 @@ let rec type_typ env (t : styp) : kind * ctyp =
       ))
     )
   | Tbind(binder, svar, kind, styp) ->
-    let nenv, id = fresh_id_for env svar in 
-    let cvar = make_cvar svar id None in 
+    let nenv, id = fresh_id_for env svar in
+    let cvar = make_cvar svar id None in
     let nenv = add_cvar nenv cvar kind in
     let kind_body, cbody = type_typ nenv styp in
     (match binder with
@@ -725,9 +698,7 @@ let type_decl env (d :decl) : env * typed_decl =
     match toe with
     | Exp(styp_loc) -> 
       let nenv, id = fresh_id_for env svar in
-      (* Format.printf "svar: %s%n \n" svar id; *)
-      (*let _, ctyp = styp_to_ctyp nenv styp_loc in  *)
-      let kind, ctyp = type_typ nenv styp_loc in
+      let kind, ctyp = type_typ env styp_loc in
       let ctyp = norm ctyp in
       let def = { scope = 0 ; typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
