@@ -26,6 +26,8 @@ val eager : bool ref
    line option.  Until lazy evaluation is implemented, this option may be
    ignored, defaulting to eager computation.  *)
   
+val eager_expansion : ctyp -> ctyp * bool
+
 val head_norm : ctyp -> ctyp
 (** [head_norm t] returns a type equivalent to [t] but in head normal form. *)
 

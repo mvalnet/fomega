@@ -46,19 +46,9 @@ let rec subst (su :ctyp Tenv.t) (t : ctyp) : ctyp =
     | Tapp(t1, t2) -> Tapp(subst su t1, subst su t2)
     | Tarr(t1, t2) -> Tarr(subst su t1, subst su t2)
     | Tprod(typ_list) ->
-      (Tprod(
-        List.fold_left
-          (fun l t -> (subst su t)::l )
-          []
-          typ_list
-      ) : ctyp)
+      Tprod(List.map (subst su) typ_list)
     | Trcd(ltyp_list) ->
-      Trcd(
-        List.fold_left
-          (fun l (lab,t) -> (lab, subst su t)::l )
-          []
-          ltyp_list
-      )
+      Trcd(map_snd (subst su) ltyp_list)
     | Tbind(b, x, k, t) ->
       Tbind(b, x, k, subst su t)
 
@@ -258,18 +248,29 @@ and diff_typ t1 t2 =
   | Tvar(v1), _ -> (
       match v1.def with
       | Some def -> diff_typ def.typ t2
-      | None -> Some(t1,t2)
+      | None -> Format.printf "fail1" ;Some(t1,t2)
   )
   | _, Tvar(v2) -> (
       match v2.def with
       | Some def -> diff_typ t1 def.typ
-      | None -> Some(t1,t2)
+      | None -> Format.printf "fail2: undefined %s%n" v2.name v2.id ; Some(t1,t2)
   )  
   | Tprim(p1), Tprim(p2) -> 
     if eq_prim p1 p2 then None
     else Some(t1, t2)
 
-  | Tapp(f1, a1), Tapp(f2, a2)
+  | Tapp(f1, a1), Tapp(f2, a2) ->
+    (match recurse_if_equal f1 f2 a1 a2 with 
+    | None -> None 
+    | Some(t1, t2) ->
+      let extend_f1, b1 = eager_expansion f1 in 
+      let extend_f2, b2 = eager_expansion f2 in
+      if b1 || b2 then 
+        diff_typ 
+          (head_norm (Tapp(extend_f1, a1)) )
+          (head_norm (Tapp(extend_f1, a1)) )
+      else None 
+    )
   | Tarr(f1, a1), Tarr(f2, a2) ->
     recurse_if_equal f1 f2 a1 a2
 
@@ -292,15 +293,15 @@ and diff_typ t1 t2 =
   | Tapp(typ1, typ2), _ ->
     let typ1_expand, b = eager_expansion typ1 in 
     if b then diff_typ (Tapp(typ1_expand, typ2)) t2
-    else Some(t1, t2)
-
+    else (Format.printf "fail3" ; Some(t1, t2)
+)
   | _, Tapp(typ1, typ2) ->
     let typ1_expand, b = eager_expansion typ1 in 
     
     if b then( diff_typ t1 (Tapp(typ1_expand, typ2)))
-    else Some(t1, t2)
+    else (Format.printf "fail4" ; Some(t1, t2))
 
-  | _ ->
+  | _ ->  Format.printf "fail5" ;
     
    Some(t1, t2)
 

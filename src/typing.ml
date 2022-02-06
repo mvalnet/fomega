@@ -90,10 +90,10 @@ let smallest_available suffix int_list =
 
 let fresh_id_for_T3 env _a =
   let prefix, suffix = integer_suffix _a in
+  let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
   let nenv, id = 
   try 
     let available_suffix = Senv.find prefix env.pvar in
-    let int_suffix = if suffix = "" then 0 else int_of_string suffix in 
     let id = smallest_available int_suffix available_suffix in
     let new_suffix = if id = 0 then int_suffix else (int_suffix * 10 + id) in 
     let pvar_env = Senv.add prefix (new_suffix :: available_suffix) env.pvar in
@@ -101,7 +101,7 @@ let fresh_id_for_T3 env _a =
     nenv,id
   with
     Not_found ->
-    let pvar_env = Senv.add prefix [0] env.pvar in
+    let pvar_env = Senv.add prefix [int_suffix] env.pvar in
     let nenv = { env with pvar = pvar_env} in
     ignore (Senv.find prefix nenv.pvar) ;
     nenv, 0
@@ -169,7 +169,7 @@ let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
    [uid] integer field for identificatiion instead of the pair [name] and [id].)
 *)
 
-let min_excluded_I3 (env, (loc_env : cvar Senv.t)) cvar = 
+(* let min_excluded_I3 (env, (loc_env : cvar Senv.t)) cvar = 
   let new_pvar =
     Senv.fold 
       (fun (svar : svar) cvar env_pvar ->
@@ -187,7 +187,7 @@ let min_excluded_I3 (env, (loc_env : cvar Senv.t)) cvar =
       env.pvar
   in 
   let nenv = { env with pvar = new_pvar } in
-  nenv, snd (fresh_id_for_T3 nenv cvar.name)
+  nenv, snd (fresh_id_for_T3 nenv cvar.name) *)
 
 let min_excluded_I3 (env, loc_to_suffix, loc_to_cvar) cvar = 
   let prefix, suffix = integer_suffix cvar.name in
@@ -274,7 +274,11 @@ let rec type_typ env (t : styp) : kind * ctyp =
   | Tprim c -> 
      Ktyp, Tprim c
   | Tvar(svar) ->
-    let cvar = get_svar env svar in
+  let cvar =
+    try 
+     get_svar env svar
+    with | Not_found -> raise Not_found
+    in
     let kind = try
        find_cvar env cvar
       with 
@@ -373,11 +377,10 @@ let rec wf_ctyp env t : ctyp =
   | Tapp(t1, t2) ->
     (try 
       Tapp(wf_ctyp env t1, wf_ctyp env t2)
-    with Escape cvar -> 
-      match t1 with 
-      | Tbind(Tlam, alpha, _, t1_body) -> 
-        wf_ctyp env (rename alpha t2 t1_body )
-      | _ -> raise (Escape cvar)
+    with Escape cvar ->
+      let typ1_expand, b = eager_expansion t1 in 
+      if b then wf_ctyp env (head_norm (Tapp(typ1_expand, t2)))
+      else raise (Escape cvar)
     )
   | Tarr(t1, t2) -> Tarr(wf_ctyp env t1, wf_ctyp env t2)
   | Tprod(typ_list) -> Tprod(List.map (wf_ctyp env) typ_list)
@@ -437,35 +440,6 @@ let styp_to_ctyp env styp =
 let make_showdiff_error loc cur exp sub_cur sub_exp =
   Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
 
-(* let rec rename_svar tau alpha tau' = 
-  match tau with
-  | Tvar(x) -> 
-    if x = alpha then tau'
-    else tau 
-  | Tprim(_) -> tau 
-  | Tprod(styp_list) ->
-    Tprod(
-      List.map (fun styp -> (rename_svar styp alpha tau')) styp_list
-    )
-  | Trcd(lab_styp_list) -> 
-    Trcd(
-      map_snd (fun styp -> (rename_svar styp alpha tau')) lab_styp_list
-    )
-  | Tapp(styp1, styp2) -> 
-    Tapp(
-      rename_svar styp1 alpha tau',
-      rename_svar styp2 alpha tau'
-    )
-  | Tarr(styp1, styp2) -> 
-    Tarr(
-      rename_svar styp1 alpha tau',
-      rename_svar styp2 alpha tau'
-    )
-  | Tbind(binder, svar, kind, styp) -> 
-    if svar = alpha then tau
-    else
-      Tbind(binder, svar, kind, rename_svar styp alpha tau')    
- *)
 let rec find_binded_var pat =
   match pat.obj with
   | Pvar(evar) -> evar, None 
@@ -473,26 +447,6 @@ let rec find_binded_var pat =
     let binded_var, _ = find_binded_var pat in
     binded_var,  Some t_annot
   | _ -> raise (complex_pattern pat)
-(*
-let find_binded_type env pat exp =
-  match pat.obj with
-  | Pvar(evar) -> (
-    match exp with
-    | Efun(_, exp_loc) ->
-      (match exp_loc.obj with 
-      | Eannot(_, styp_loc) -> None
-      | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
-      )
-    | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
-    )
-  | Ptyp(x, styp_loc) -> (
-      match x.obj with 
-      | Pvar(evar) -> Some(styp_loc)
-      | _ -> raise (complex_pattern pat)
-  )
- | _ -> raise (complex_pattern pat)
-
- *)
 
 let typ_to_string = function
   | Tvar(_) -> "tvar"
@@ -694,18 +648,30 @@ and apply_arg env t_expr arg_list =
   | _, [] -> t_expr
   | Tvar(cvar), Exp(arg1) :: q -> (
     match cvar.def with 
-    | Some def -> apply_arg env def.typ arg_list
+    | Some def -> apply_arg env (head_norm def.typ) arg_list
     | None -> raise (
       Typing(Some (arg1.loc), Expected(t_expr, Matching(Sarr)))
     )
   )
   | Tvar(cvar), Typ(styp_loc) :: q -> (
     match cvar.def with 
-    | Some def -> apply_arg env def.typ arg_list
+    | Some def -> apply_arg env (head_norm def.typ) arg_list
     | None -> raise (
       Typing(Some (styp_loc.loc), Expected(t_expr, Matching(Sall)))
     )
   )
+  | Tapp(ctyp1, ctyp2), Typ(styp_loc) :: q  -> 
+    let ctyp1_expand, b = eager_expansion ctyp1 in
+    if b then apply_arg env (head_norm (Tapp(ctyp1_expand, ctyp2))) arg_list 
+    else raise (
+      Typing(Some (styp_loc.loc), Expected(t_expr, Matching(Sall))))
+  
+  | Tapp(ctyp1, ctyp2), Exp(arg1) :: q  -> 
+    let ctyp1_expand, b = eager_expansion ctyp1 in
+    if b then apply_arg env (head_norm (Tapp(ctyp1_expand, ctyp2))) arg_list 
+    else raise (
+      Typing(Some (arg1.loc), Expected(t_expr, Matching(Sall))))
+
   | _, Exp(arg1) :: q -> raise (
     Typing(Some (arg1.loc), Expected(t_expr, Matching(Sarr)))
   )
@@ -750,14 +716,15 @@ let type_decl env (d :decl) : env * typed_decl =
   match d.obj with
   | Dtyp(svar, toe) -> (
     match toe with
-    | Exp(styp_loc) ->
+    | Exp(styp_loc) -> 
       let nenv, id = fresh_id_for env svar in
+      Format.printf "svar: %s%n \n" svar id;
       (*let _, ctyp = styp_to_ctyp nenv styp_loc in  *)
       let kind, ctyp = type_typ nenv styp_loc in
       let ctyp = norm ctyp in
-      let def = { scope = 0 (* ??? *); typ = ctyp } in
+      let def = { scope = 0 ; typ = ctyp } in
       let cvar = make_cvar svar id (Some def) in
-      let nenv = add_svar nenv svar cvar in 
+      let nenv = add_svar nenv svar cvar in
       let nenv = add_cvar nenv cvar kind in
       nenv, Gtyp(cvar, Exp(kind, minimize_typ env ctyp))
 
