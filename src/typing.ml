@@ -169,7 +169,7 @@ let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
    [uid] integer field for identificatiion instead of the pair [name] and [id].)
 *)
 
-let min_excluded_I3 (env, loc_to_suffix, loc_to_cvar) cvar = 
+let min_excluded_I3 (env, loc_to_suffix) cvar = 
   let prefix, suffix = integer_suffix cvar.name in
   let svar_taken_suffix =
     ( try Senv.find prefix env.pvar with Not_found -> [])
@@ -222,7 +222,7 @@ let rec aux_minimize_typ (global_env, (map_to_suffix : (int list) Senv.t), (map_
     | Trcd(rcd_l) ->
       Trcd(map_snd (aux_minimize_typ env) rcd_l)
     | Tbind(binder, binded_cvar, kind, t) ->
-      let new_suffix, min_id = min_excluded_I3 (global_env, map_to_suffix, map_to_new_cvar) binded_cvar in
+      let new_suffix, min_id = min_excluded_I3 (global_env, map_to_suffix) binded_cvar in
       let new_cvar = {name = binded_cvar.name ; id = min_id ; def = None } in
       let prefix, _ = integer_suffix binded_cvar.name in
       let taken_suffix =
@@ -434,8 +434,8 @@ let rec type_exp env exp : ctyp =
   | Eprim (String _) -> Tprim Tstring
   | Eannot(exp, styp_loc) ->
     let t_expr = type_exp env exp in
-    let nenv, t_annot = styp_to_ctyp env styp_loc in
-   ( match diff_typ t_expr t_annot with
+    let _, t_annot = styp_to_ctyp env styp_loc in
+   ( match diff_typ (norm t_expr) (norm t_annot) with
     | None -> t_annot
     | Some(subt_expr, subt_annot) -> raise (
       make_showdiff_error exp.loc t_expr t_annot subt_expr subt_annot
@@ -497,7 +497,7 @@ let rec type_exp env exp : ctyp =
     if is_rec then
       let nenv, binded_type = find_binded_type env pat exp1.obj in
       let t_expr1 = type_exp nenv exp1 in
-      (match diff_typ t_expr1 binded_type with 
+      (match diff_typ (norm t_expr1) (norm binded_type) with 
       | None -> type_exp nenv exp2
       | Some(subt_expr1, sub_binded_type) -> raise (
         make_showdiff_error
@@ -514,7 +514,7 @@ let rec type_exp env exp : ctyp =
         | None -> env
         | Some styp_annot -> 
           let env, ctyp_annot = styp_to_ctyp env styp_annot in 
-          (match diff_typ t_exp1 ctyp_annot with
+          (match diff_typ (norm t_exp1) (norm ctyp_annot) with
           | None -> env
           | Some (sub_t_exp1, sub_ctyp_annot) -> raise (
             make_showdiff_error exp1.loc t_exp1 ctyp_annot sub_t_exp1 sub_ctyp_annot
@@ -568,7 +568,7 @@ and typ_pack env tau' exp ctyp_as =
     )
   | Tbind(Texi, alpha, kind, tau)  -> 
     let expected_ctyp = norm (subst_typ alpha tau' tau) in
-    (match diff_typ ctyp expected_ctyp with
+    (match diff_typ (norm ctyp) (norm expected_ctyp) with
     | None -> ctyp_as
     | Some(subt_expr, subt_expected) ->
       raise (
@@ -615,7 +615,7 @@ and apply_arg env t_expr arg_list =
     apply_arg nenv ctyp arg_list 
   | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in
-      (match diff_typ t_arg1 (norm t1) with
+      (match diff_typ (norm t_arg1) (norm t1) with
       | None -> apply_arg env t2 arg_list
       | Some(subt_arg1, sub_t1) -> raise (
         make_showdiff_error arg1.loc t_arg1 t1 subt_arg1 sub_t1
@@ -713,7 +713,7 @@ let type_decl env (d :decl) : env * typed_decl =
     if is_rec then
       let nenv, binded_type = find_binded_type env pat exp.obj in
       let ctyp = type_exp nenv exp in
-      (match diff_typ ctyp binded_type with 
+      (match diff_typ (norm ctyp) (norm binded_type) with 
       | None -> nenv, Glet(binded_var, minimize_typ env ctyp)
       | Some(sub_ctyp, sub_binded_type) -> raise (
         make_showdiff_error
@@ -730,7 +730,7 @@ let type_decl env (d :decl) : env * typed_decl =
         | None -> env, ctyp_exp
         | Some styp_annot -> 
           let nenv, ctyp_annot = styp_to_ctyp env styp_annot in 
-          (match diff_typ ctyp_exp ctyp_annot with
+          (match diff_typ (norm ctyp_exp) (norm ctyp_annot) with
           | None -> nenv, ctyp_annot
           | Some (sub_ctyp_exp, sub_ctyp_annot) -> raise (
             make_showdiff_error exp.loc ctyp_exp ctyp_annot sub_ctyp_exp sub_ctyp_annot

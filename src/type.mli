@@ -33,7 +33,6 @@ val eager_expansion : ctyp -> ctyp * bool
 val head_norm : ctyp -> ctyp
 (** [head_norm t] returns a type equivalent to [t] but in head normal form. *)
 
-
 val norm : ctyp -> ctyp
 (** [norm t] returns a type equivalent to [t] but in normal form. *)
 

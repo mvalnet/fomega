@@ -69,36 +69,6 @@ let _lazy =
 let struct_eq_cvar c1 c2 =
   c1.name = c2.name && c1.id = c2.id
 
-(** [rename] replaces every occurrence of the first argument by
-   the second argument in the body of the third argument **)
-(* let rec rename cvar cvar_ctyp ctyp =
-  match ctyp with 
-  | Tvar(cvar') -> 
-    if struct_eq_cvar cvar cvar' then 
-      cvar_ctyp
-    else ctyp
-  | Tprim(_) -> ctyp
-  | Tapp(ctyp1, ctyp2) -> 
-    Tapp(
-      rename cvar cvar_ctyp ctyp1,
-      rename cvar cvar_ctyp ctyp2)
-  | Tarr(ctyp1, ctyp2) -> 
-    Tarr(
-      rename cvar cvar_ctyp ctyp1,
-      rename cvar cvar_ctyp ctyp2)
-  | Tprod(ctyp_list) -> 
-    Tprod(
-      List.map (rename cvar cvar_ctyp) ctyp_list
-    )
-  | Trcd(lab_ctyp_list) ->
-    Trcd(
-      map_snd (rename cvar cvar_ctyp) lab_ctyp_list
-    )
-  | Tbind(binder, binded_cvar, k, ctyp_body) ->
-    if (binded_cvar.name) = (cvar.name) then ctyp
-    else
-      Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp_body) *)
-
 (* ____________________________ Eager and lazy modes ____________________________ *)
 
 let rec eager_expansion ctyp : ctyp * bool = 
@@ -160,20 +130,11 @@ let rec full_normal t1 =
     | Tbind(Tlam, _, _, _) -> full_normal (Tapp(n_ct1, n_ct2))
     | _ ->  Tapp(n_ct1, n_ct2)
 
-let rec print_parsed t1 =
-  match t1 with 
-    |Tprim(_) -> ""
-    | Tvar(v) -> v.name 
-    | Tapp(t1, t2) -> "app (" ^ (print_parsed t1)^ ") (" ^ (print_parsed t2) ^")"
-    | Tbind(binder, alpha, kind, ctyp) -> "lam (" ^ (alpha.name)^ ") (" ^ (print_parsed ctyp) ^")"
-
-    | _ -> ""
-
 let head_norm t1 = 
   let rec head_reduction t =
     match t with
     | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
-      let b, reduct_t1 = head_reduction (subst_typ alpha ct2 ct1) in
+      let _, reduct_t1 = head_reduction (subst_typ alpha ct2 ct1) in
       true, reduct_t1
     | Tapp(t1, t2) ->
       let is_reduct_t1, reduct_t1 = head_reduction t1 in 
@@ -209,7 +170,7 @@ let norm t1 =
   if !eager then
     let expand_t1, _  = eager_expansion t1 in 
     full_normal expand_t1
-  else t1
+  else head_norm t1
 
 let eq_binder b1 b2 =
   match b1, b2 with
@@ -274,6 +235,8 @@ and diff_typ t1 t2 =
     if eq_prim p1 p2 then None
     else Some(t1, t2)
 
+  | Tprim Tunit, Tprod [] | Tprod [], Tprim Tunit -> None
+
   | Tapp(f1, a1), Tapp(f2, a2) ->
     (match recurse_if_equal f1 f2 a1 a2 with 
     | None -> None 
@@ -283,8 +246,8 @@ and diff_typ t1 t2 =
       if b1 || b2 then 
         diff_typ 
           (head_norm (Tapp(extend_f1, a1)) )
-          (head_norm (Tapp(extend_f1, a1)) )
-      else None 
+          (head_norm (Tapp(extend_f2, a2)) )
+      else None
     )
   | Tarr(f1, a1), Tarr(f2, a2) ->
     recurse_if_equal f1 f2 a1 a2
@@ -292,7 +255,7 @@ and diff_typ t1 t2 =
   | Tprod(l1), Tprod(l2) -> iter_diff_typ t1 t2 l1 l2
 
   | Trcd(l1), Trcd(l2) ->
-    let compare_label (l1, t1) (l2, t2) =
+    let compare_label (l1, _) (l2, _) =
       if l1 = l2 then 0 else if l1 > l2 then 1 else -1
     in 
     let sorted_l1 = List.sort compare_label l1 in 
@@ -304,16 +267,15 @@ and diff_typ t1 t2 =
       let body1_renamed = subst_typ x1 (Tvar x2) body1 in 
       diff_typ body1_renamed body2
     else Some(t1, t2)
-  | Tprim Tunit, Tprod [] | Tprod [], Tprim Tunit -> None
   | Tapp(typ1, typ2), _ ->
-    let typ1_expand, b = eager_expansion typ1 in 
+    let b, typ1_expand = lazy_reduce_expand typ1 in 
     if b then diff_typ (Tapp(typ1_expand, typ2)) t2
     else Some(t1, t2)
 
   | _, Tapp(typ1, typ2) ->
-    let typ1_expand, b = eager_expansion typ1 in 
+    let b, typ1_expand = lazy_reduce_expand typ1 in 
     
-    if b then( diff_typ t1 (Tapp(typ1_expand, typ2)))
+    if b then(diff_typ t1 (Tapp(typ1_expand, typ2)))
     else Some(t1, t2)
 
   | _ -> 
