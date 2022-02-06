@@ -1,6 +1,6 @@
 (* Once you are done writing the code, remove this directive,
    whose purpose is to disable several warnings. *)
-[@@@warning "-27-32-33-37-39-60"]
+(* [@@@warning "-27-32-33-37-39-60"] *)
 open Util
 open List
 open Syntax
@@ -81,6 +81,9 @@ let f_omega loc = Typing(Some loc, NotImplemented "F_Omega")
 
 let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
 
+let make_showdiff_error loc cur exp sub_cur sub_exp =
+  Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
+
 (* _____________________ Fresh_id_for implementations _____________________ *)
 
 (** [fresh_id_for env a] returns the smallest possible id for variable name
@@ -148,12 +151,6 @@ let fresh_id_for_T3 env _a =
   in
   add_svar nenv _a { name = _a ; id ; def = None }, id
 
-
-(** Assuming source type variables never end with an integer, a simple correct 
-    implementation of [fresh_id_for] *)
-let fresh_id_for_T1 env _a =
-  env, fresh_id ()
-
 (** Assuming source type variables never end with an integer, a simple and more
     readable correct implementation of [fresh_id_for] *)
 let fresh_id_for_T2 env _a =
@@ -164,6 +161,11 @@ let fresh_id_for_T2 env _a =
       | Not_found -> 0
   in
   add_svar env _a { name = _a ; id ; def = None }, id
+
+  (** Assuming source type variables never end with an integer, a simple correct 
+    implementation of [fresh_id_for] *)
+let fresh_id_for_T1 env _a =
+  env, fresh_id ()
 
 let fresh_id_for =
      fresh_id_for_T3
@@ -202,7 +204,7 @@ let min_excluded_I3 (env, loc_to_suffix) cvar =
   
 
 (** [min_excluded_I2 (env, loc_env) cvar] computes the min id available
-  in the union of [env] and [loc_env] for [cvar]. Not useful anymore. *)
+  in the union of [env] and [loc_env] for [cvar]. Not usable anymore. *)
 let min_excluded_I2 (env,loc_env) cvar =
   try 
     (Senv.find cvar.name loc_env).id + 1, 0
@@ -350,9 +352,8 @@ let rec type_typ env (t : styp) : kind * ctyp =
     Trcd( map_snd (fun s -> snd (type_typ env s)) labstyp_list)
 
 let type_typ env styp_loc = 
-  let kind, ctyp = within_loc ( within_typ(type_typ env)) styp_loc in
+  let kind, ctyp = within_loc (within_typ(type_typ env)) styp_loc in
   kind, norm ctyp
-
 
 (* _______________________ Well-formedness checking _______________________ *)
 
@@ -374,7 +375,7 @@ let rec wf_ctyp env t : ctyp =
     (try 
       let current_cvar = find_svar env (cvar.name) in
       if cvar.id <> current_cvar.id then
-       raise (Escape cvar)
+        raise (Escape cvar)
       else t 
     with 
     | Not_found -> raise (Escape cvar)
@@ -399,25 +400,23 @@ let rec wf_ctyp env t : ctyp =
     let nenv = add_svar env cvar.name cvar in 
     Tbind(binder, cvar, kind, wf_ctyp nenv ctyp)
 
-(* __________________________ 3. Type checking __________________________ *)
+(* _____________________________ Type checking _____________________________ *)
 
-let make_showdiff_error loc cur exp sub_cur sub_exp =
-  Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
-
-let rec find_binded_var pat =
+let rec find_bound_var pat =
   match pat.obj with
   | Pvar(evar) -> evar, None 
   | Ptyp(pat, t_annot) ->
-    let binded_var, _ = find_binded_var pat in
+    let binded_var, _ = find_bound_var pat in
     binded_var,  Some t_annot
   | _ -> raise (complex_pattern pat)
 
 let rec type_exp env exp : ctyp =
   match exp.obj with 
-  | Evar x -> norm(get_evar exp env x)
+  | Evar x -> norm (get_evar exp env x)
   | Eprim (Int _) -> Tprim Tint
   | Eprim (Bool _) -> Tprim Tbool
   | Eprim (String _) -> Tprim Tstring
+
   | Eannot(exp, styp_loc) ->
     let t_expr = type_exp env exp in
     let _, t_annot = type_typ env styp_loc in
@@ -427,10 +426,10 @@ let rec type_exp env exp : ctyp =
       make_showdiff_error exp.loc t_expr t_annot subt_expr subt_annot
       )
     )
+
   | Eprod(exp_list) ->
-    Tprod(
-      List.map (type_exp env) exp_list
-    )
+    Tprod(List.map (type_exp env) exp_list)
+
   | Eproj(exp, n) -> 
     let ctyp = type_exp env exp in 
     let _, expand_ctyp = lazy_reduce_expand ctyp in 
@@ -443,10 +442,10 @@ let rec type_exp env exp : ctyp =
         )
       )
   )
+
   | Ercd(labexp_list) ->
-    Trcd(
-      map_snd (type_exp env) labexp_list
-    )
+    Trcd(map_snd (type_exp env) labexp_list)
+
   | Elab(exp, lab) -> 
     let ctyp = type_exp env exp in 
     let _, expand_ctyp = lazy_reduce_expand ctyp in 
@@ -475,13 +474,15 @@ let rec type_exp env exp : ctyp =
   )
 
   | Efun(binding_list, exp) ->
-    cross_binding env (Exp exp) binding_list
+    type_fun env (Exp exp) binding_list
+
   | Eappl(exp, arg_list) ->
     let t_expr = type_exp env exp in
-    norm(apply_arg env t_expr arg_list)
+    norm(type_apply env t_expr arg_list)
+
   | Elet(is_rec, pat, exp1, exp2) ->
     if is_rec then
-      let nenv, binded_type = find_binded_type env pat exp1.obj in
+      let nenv, binded_type = find_annotation env pat exp1.obj in
       let t_expr1 = type_exp nenv exp1 in
       (match diff_typ (norm t_expr1) (norm binded_type) with 
       | None -> type_exp nenv exp2
@@ -493,7 +494,7 @@ let rec type_exp env exp : ctyp =
         )
       ) 
     else 
-      let binded_var, annot_var = find_binded_var pat in
+      let binded_var, annot_var = find_bound_var pat in
       let t_exp1 = type_exp env exp1 in
       (match annot_var with 
       | None ->
@@ -514,9 +515,9 @@ let rec type_exp env exp : ctyp =
 
   | Epack(packed_styp, exp, styp_as) ->
     let _, ctyp_as = type_typ env styp_as in
-    let _, packed_ctyp = type_typ env packed_styp in
     let _, expand_ctyp_as = lazy_reduce_expand ctyp_as in
-    norm(typ_pack env packed_ctyp exp expand_ctyp_as )
+    norm(type_pack env packed_styp exp expand_ctyp_as)
+
   | Eopen(alpha, x, exp1, exp2) ->
     let exi_ctyp1 = type_exp env exp1 in 
     let _, expand_exi_ctyp1 = lazy_reduce_expand exi_ctyp1 in
@@ -526,6 +527,7 @@ let rec type_exp env exp : ctyp =
       let cvar = make_cvar alpha id None in
       let unpack_ctyp1 = subst_typ beta (Tvar(cvar)) ctyp1 in
       let nenv = add_evar nenv x unpack_ctyp1 in
+      let nenv = add_cvar nenv cvar kind in
       let ctyp2 = type_exp nenv exp2 in
       (try 
         norm(wf_ctyp env ctyp2)
@@ -541,48 +543,50 @@ let rec type_exp env exp : ctyp =
       )
     ))
 
-and typ_pack env tau' exp ctyp_as =
-  let ctyp = norm (type_exp env exp) in
+(* Help for Epack typing  *)
+and type_pack env packed_styp exp ctyp_as =
+  let ctyp = type_exp env exp in
+  let packed_kind, packed_ctyp = type_typ env packed_styp in
   match ctyp_as with
-  | Tvar(cvar) -> (
-      match cvar.def with 
-      | Some(def) -> typ_pack env tau' exp def.typ
-      | None -> raise (
-        Typing(
-          Some exp.loc,
-          Expected(ctyp_as, Matching(Sexi))
+  | Tbind(Texi, alpha, kind, tau)  -> 
+    let expected_ctyp = subst_typ alpha packed_ctyp tau in
+    if not (eq_kind packed_kind kind) then 
+      raise (Typing(
+          Some packed_styp.loc,
+          Kinding(
+            packed_styp.obj,
+            packed_kind,
+            Nonequal(kind)
+          )
+        ))
+    else 
+      (match diff_typ (norm ctyp) (norm expected_ctyp) with
+      | None -> ctyp_as
+      | Some(subt_expr, subt_expected) ->
+        raise (
+          make_showdiff_error
+          exp.loc
+          ctyp expected_ctyp
+          subt_expr subt_expected
         )
       )
-    )
-  | Tbind(Texi, alpha, kind, tau)  -> 
-    let expected_ctyp = norm (subst_typ alpha tau' tau) in
-    (match diff_typ (norm ctyp) (norm expected_ctyp) with
-    | None -> ctyp_as
-    | Some(subt_expr, subt_expected) ->
-      raise (
-        make_showdiff_error
-        exp.loc
-        ctyp expected_ctyp
-        subt_expr subt_expected
-      )
-    )
-    
-    | _ -> raise (
-      Typing(
+    | _ -> raise (Typing(
         Some exp.loc,
-         Expected(ctyp_as, Matching(Sexi))
-      )
-    )
+        Expected(ctyp_as, Matching(Sexi))
+      ))
 
 
-and find_binded_type env pat exp =
+(** Find annotation either in the pattern or in the expression *)
+and find_annotation env pat exp =
   match pat.obj with
   | Pvar(evar) -> (
     match exp with
     | Efun(args, exp_loc) ->
       (match exp_loc.obj with 
       | Eannot(_, styp_loc) ->
-        let ctyp = cross_binding env (Typ styp_loc) args in 
+        let ctyp = type_fun env (Typ styp_loc) args in
+        (* we need types information from the argument to
+          get the annotation representation *)
         add_evar env evar ctyp, norm ctyp
       | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
       )
@@ -597,9 +601,11 @@ and find_binded_type env pat exp =
   )
  | _ -> raise (complex_pattern pat)
 
-and apply_arg env t_expr arg_list =
-  let _, expand_t_expr = lazy_reduce_expand t_expr in
-  match expand_t_expr, arg_list with
+(**[type_apply env t_expr arg_list] checks if the argument types in [arg_list]
+matches the type of the function [t_expr] *)
+and type_apply env t_fun arg_list =
+  let _, expand_t_fun = lazy_reduce_expand t_fun in
+  match expand_t_fun, arg_list with
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
     let arg_kind, arg_ctyp = type_typ env styp_loc in
     if not (eq_kind arg_kind kind) then 
@@ -614,27 +620,30 @@ and apply_arg env t_expr arg_list =
     )
     else
       let ctyp = subst_typ cvar arg_ctyp ctyp in
-      apply_arg env ctyp arg_list 
+      type_apply env ctyp arg_list 
   | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in
       (match diff_typ (norm t_arg1) (norm t1) with
-      | None -> apply_arg env t2 arg_list
+      | None -> type_apply env t2 arg_list
       | Some(subt_arg1, sub_t1) -> raise (
         make_showdiff_error arg1.loc t_arg1 t1 subt_arg1 sub_t1
         )
       )
-  | _, [] -> t_expr
+  | _, [] -> t_fun
 
   | _, Exp(arg1) :: q -> raise (
-    Typing(Some (arg1.loc), Expected(t_expr, Matching(Sarr)))
+    Typing(Some (arg1.loc), Expected(t_fun, Matching(Sarr)))
   )
   | _, Typ(styp_loc) :: q -> raise (
-    Typing(Some (styp_loc.loc), Expected(t_expr, Matching(Sall)))
+    Typing(Some (styp_loc.loc), Expected(t_fun, Matching(Sall)))
   )
 
-and cross_binding env expr = function
+(** [type_fun env typ_or_exp binding] crosses [binding], checking expression
+ variables are annotated and deducing from the build environment the type of
+ [typ_or_exp] *)
+and type_fun env typ_or_exp = function
   | [] -> (
-      match expr with 
+      match typ_or_exp with 
       | Exp(body_exp) -> type_exp env body_exp
       | Typ(styp_loc) -> snd (type_typ env styp_loc)
   )
@@ -643,7 +652,7 @@ and cross_binding env expr = function
     let cvar = make_cvar svar id_svar None in 
     let nenv = add_svar env svar cvar in 
     let nenv = add_cvar nenv cvar kind in
-    Tbind(Tall, cvar, kind, cross_binding nenv expr q)
+    Tbind(Tall, cvar, kind, type_fun nenv typ_or_exp q)
   | Exp(pat) :: q -> (
     match pat.obj with
     | Ptyp(pat, styp_loc) -> 
@@ -651,7 +660,7 @@ and cross_binding env expr = function
         | Pvar(evar) ->
           let _, ctyp = type_typ env styp_loc in
           let nenv = add_evar env evar ctyp in
-          Tarr(ctyp, cross_binding nenv expr q)
+          Tarr(ctyp, type_fun nenv typ_or_exp q)
         | _ -> raise (complex_pattern pat))
     | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
     | _ -> raise (complex_pattern pat)
@@ -686,9 +695,9 @@ let type_decl env (d :decl) : env * typed_decl =
       nenv, Gtyp(cvar,Typ(kind))
   )
   | Dlet(is_rec, pat, exp) ->
-    let binded_var, _ = find_binded_var pat in
+    let binded_var, _ = find_bound_var pat in
     if is_rec then
-      let nenv, binded_type = find_binded_type env pat exp.obj in
+      let nenv, binded_type = find_annotation env pat exp.obj in
       let ctyp = type_exp nenv exp in
       (match diff_typ (norm ctyp) (norm binded_type) with 
       | None -> nenv, Glet(binded_var, minimize_typ env ctyp)
@@ -701,7 +710,7 @@ let type_decl env (d :decl) : env * typed_decl =
     )
     else 
       let ctyp_exp = type_exp env exp in
-      let binded_var, annot_var = find_binded_var pat in
+      let binded_var, annot_var = find_bound_var pat in
       let nenv, ctyp = 
         match annot_var with 
         | None -> env, ctyp_exp
