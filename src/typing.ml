@@ -226,13 +226,7 @@ let rec aux_minimize_typ (global_env, (map_to_suffix : (int list) Senv.t), (map_
       try
         Tvar( Senv.find (cv.name) map_to_new_cvar)
       with 
-       | Not_found -> 
-        try Tvar(find_svar global_env cv.name)
-        with 
-          | Not_found ->
-            Tvar({name = cv.name ; id = 0 ; def = None}) 
-          (* STILL A PROBLEM THERE *)
-           (*Format.printf "here" ; Format.printf "%s" cv.name ; raise Not_found*)
+       | Not_found -> t
     )
     | Tprim(_) -> t
     | Tapp(t1, t2) -> 
