@@ -371,11 +371,7 @@ let rec svar_to_cvar env (scar : styp) : (env * ctyp) =
   match scar with
   | Tvar(v) -> env,
     let cvar = get_svar env v in
-    if v = "int" && (cvar.id = 0) then Tprim Tint 
-    else if v = "bool" && (cvar.id = 0) then Tprim Tbool
-    else if v = "string" && (cvar.id = 0) then Tprim Tstring
-    else if v = "unit" && (cvar.id = 0) then Tprod []
-    else Tvar cvar     
+   Tvar cvar     
   | Tprim(x) -> env, Tprim(x)
    | Tarr(s1, s2) ->
     let env1, c1 = svar_to_cvar env s1 in
@@ -541,7 +537,7 @@ let rec type_exp env exp : ctyp =
     | Tbind(Texi, beta, kind, ctyp1) ->
       let nenv, id = fresh_id_for env alpha in 
       let cvar = make_cvar alpha id None in
-      let unpack_ctyp1 = rename beta (Tvar(cvar)) ctyp1 in
+      let unpack_ctyp1 = subst_typ beta (Tvar(cvar)) ctyp1 in
       let nenv = add_evar nenv x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
       (*let _, expand_ctyp2 = lazy_reduce_expand ctyp2 in*)
@@ -571,7 +567,7 @@ and typ_pack env tau' exp ctyp_as =
       )
     )
   | Tbind(Texi, alpha, kind, tau)  -> 
-    let expected_ctyp = norm (rename alpha tau' tau) in
+    let expected_ctyp = norm (subst_typ alpha tau' tau) in
     (match diff_typ ctyp expected_ctyp with
     | None -> ctyp_as
     | Some(subt_expr, subt_expected) ->
@@ -615,7 +611,7 @@ and apply_arg env t_expr arg_list =
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
     let nenv, arg_ctyp = styp_to_ctyp env styp_loc in
     (* check kind compatibility *)
-    let ctyp = rename cvar arg_ctyp ctyp in
+    let ctyp = subst_typ cvar arg_ctyp ctyp in
     apply_arg nenv ctyp arg_list 
   | Tarr(t1,t2), Exp(arg1) :: arg_list -> 
       let t_arg1 = type_exp env arg1 in
@@ -750,7 +746,7 @@ let type_decl env (d :decl) : env * typed_decl =
     | Tbind(Texi, beta, kind, ctyp_body) -> 
       let nenv, id = fresh_id_for env alpha in
       let cvar = make_cvar alpha id None in
-      let unpack_ctyp_body = rename beta (Tvar(cvar)) ctyp_body in
+      let unpack_ctyp_body = subst_typ beta (Tvar(cvar)) ctyp_body in
       let nenv = add_evar nenv evar unpack_ctyp_body in 
       let nenv = add_svar nenv alpha cvar in 
       (add_cvar nenv cvar kind), Gopen(cvar, evar, (minimize_typ env (norm unpack_ctyp_body)))

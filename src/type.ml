@@ -52,7 +52,6 @@ let rec subst (su :ctyp Tenv.t) (t : ctyp) : ctyp =
     | Tbind(b, x, k, t) ->
       Tbind(b, x, k, subst su t)
 
-    
 let subst_typ (a : Tenv.key) (ta : ctyp) t =
   let su = Tenv.singleton a ta in
     subst su t
@@ -72,7 +71,7 @@ let struct_eq_cvar c1 c2 =
 
 (** [rename] replaces every occurrence of the first argument by
    the second argument in the body of the third argument **)
-let rec rename cvar cvar_ctyp ctyp =
+(* let rec rename cvar cvar_ctyp ctyp =
   match ctyp with 
   | Tvar(cvar') -> 
     if struct_eq_cvar cvar cvar' then 
@@ -98,7 +97,7 @@ let rec rename cvar cvar_ctyp ctyp =
   | Tbind(binder, binded_cvar, k, ctyp_body) ->
     if (binded_cvar.name) = (cvar.name) then ctyp
     else
-      Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp_body)
+      Tbind(binder, binded_cvar, k, rename cvar cvar_ctyp ctyp_body) *)
 
 (* ____________________________ Eager and lazy modes ____________________________ *)
 
@@ -146,7 +145,7 @@ let rec full_normal t1 =
   match t1 with 
   | Tvar(_) | Tprim(_) -> t1
   | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
-    full_normal (rename alpha ct2 ct1)
+    full_normal (subst_typ alpha ct2 ct1)
   | Tarr(ct1, ct2) ->
     Tarr(full_normal ct1, full_normal ct2)  
   | Trcd(lab_ctyp_list) -> 
@@ -174,7 +173,7 @@ let head_norm t1 =
   let rec head_reduction t =
     match t with
     | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
-      let b, reduct_t1 = head_reduction (rename alpha ct2 ct1) in
+      let b, reduct_t1 = head_reduction (subst_typ alpha ct2 ct1) in
       true, reduct_t1
     | Tapp(t1, t2) ->
       let is_reduct_t1, reduct_t1 = head_reduction t1 in 
@@ -211,9 +210,6 @@ let norm t1 =
     let expand_t1, _  = eager_expansion t1 in 
     full_normal expand_t1
   else t1
-
-let eq_typ t1 t2 = compare t1 t2 = 0
-(* compare (norm t1) (norm t2) for Task 4*)
 
 let eq_binder b1 b2 =
   match b1, b2 with
@@ -305,7 +301,7 @@ and diff_typ t1 t2 =
 
   | Tbind(b1,x1,k1,body1), Tbind(b2,x2,k2,body2) ->
     if eq_binder b1 b2 && eq_kind k1 k2 then
-      let body1_renamed = rename x1 (Tvar x2) body1 in 
+      let body1_renamed = subst_typ x1 (Tvar x2) body1 in 
       diff_typ body1_renamed body2
     else Some(t1, t2)
   | Tprim Tunit, Tprod [] | Tprod [], Tprim Tunit -> None
@@ -324,3 +320,7 @@ and diff_typ t1 t2 =
     
    Some(t1, t2)
 
+let eq_typ t1 t2 =
+  match diff_typ t1 t2 with 
+  | None -> true 
+  | _ -> false
