@@ -66,48 +66,26 @@ let _lazy =
 (* __________________ Reduction and unfolding: eager mode __________________ *)
 
 
-(** [eager_expansion ctyp] expand eagerly every variable presents in [ctyp].
-  Is is used in eager normalization. It returns the normalized type and a bool
-  indicating if it has been modified *)
-let rec eager_expansion ctyp : ctyp * bool = 
+(** [eager_expansion ctyp] performs eager expansion of every variable presents
+  in [ctyp] in eager mode. It is used in eager normalization *)
+let rec eager_expansion ctyp : ctyp = 
   match ctyp with 
   | Tvar(cvar) -> (
     match cvar.def with 
-      | None -> ctyp, false
-      | Some(def) -> fst (eager_expansion def.typ), true
+      | None -> ctyp
+      | Some(def) -> eager_expansion def.typ
     )
-  | Tprim(_) -> ctyp, false 
+  | Tprim(_) -> ctyp
   | Tarr(ctyp1, ctyp2) -> 
-    let exp_ctyp1, b1 = eager_expansion ctyp1 in
-    let exp_ctyp2, b2 = eager_expansion ctyp2 in
-    Tarr(exp_ctyp1, exp_ctyp2), b1 || b2
+    Tarr(eager_expansion ctyp1, eager_expansion ctyp2)
   | Tapp(ctyp1, ctyp2) -> 
-    let exp_ctyp1, b1 = eager_expansion ctyp1 in
-    let exp_ctyp2, b2 = eager_expansion ctyp2 in
-    Tapp(exp_ctyp1, exp_ctyp2), b1 || b2
+    Tapp(eager_expansion ctyp1, eager_expansion ctyp2)
   | Tprod(typ_list) ->
-    let b, expand_typ_list = 
-    List.fold_left_map 
-      (fun b ctyp -> 
-        let expand_ctyp, b' = eager_expansion ctyp in 
-        b || b', expand_ctyp)
-      false
-      typ_list
-    in 
-    Tprod(expand_typ_list), b
+    Tprod(List.map eager_expansion typ_list)
   | Trcd(labctyp_list) ->
-    let b, expand_typ_list = 
-    List.fold_left_map 
-      (fun b (lab,ctyp) -> 
-        let expand_ctyp, b' = eager_expansion ctyp in 
-        b || b', (lab, expand_ctyp))
-      false
-      labctyp_list
-    in 
-    Trcd(expand_typ_list), b
-  | Tbind(binder, cvar, kind, ctyp) -> 
-    let exp_ctyp, b = eager_expansion ctyp in 
-    Tbind(binder, cvar, kind, exp_ctyp), b
+    Trcd(map_snd eager_expansion labctyp_list)
+  | Tbind(binder, cvar, kind, ctyp) ->
+    Tbind(binder, cvar, kind, eager_expansion ctyp)
 
 
 (** [full_normal ctyp] fully normalizes [ctyp]. Is is used in eager
@@ -119,10 +97,10 @@ let rec full_normal t1 =
     full_normal (subst_typ alpha ct2 ct1)
   | Tarr(ct1, ct2) ->
     Tarr(full_normal ct1, full_normal ct2)  
-  | Trcd(lab_ctyp_list) -> 
-    Trcd (map_snd full_normal lab_ctyp_list)
   | Tprod(ctyp_list) ->
     Tprod (List.map full_normal ctyp_list)
+  | Trcd(lab_ctyp_list) -> 
+    Trcd (map_snd full_normal lab_ctyp_list)
   | Tbind(binder, alpha, kind, ctyp) -> 
     Tbind(binder, alpha, kind, full_normal ctyp)
   | Tapp(ct1, ct2) -> 
@@ -140,21 +118,21 @@ let head_norm t1 =
   let rec head_reduction t =
     match t with
     | Tapp(Tbind(Tlam, alpha, _, ct1), ct2) ->
-      let _, reduct_t1 = head_reduction (subst_typ alpha ct2 ct1) in
-      true, reduct_t1
+      let _, reduced_t1 = head_reduction (subst_typ alpha ct2 ct1) in
+      true, reduced_t1
     | Tapp(t1, t2) ->
-      let is_reduct_t1, reduct_t1 = head_reduction t1 in 
-      if is_reduct_t1 then
-        let _, red_term = head_reduction (Tapp(reduct_t1, t2)) in 
+      let is_reduced_t1, reduced_t1 = head_reduction t1 in 
+      if is_reduced_t1 then
+        let _, red_term = head_reduction (Tapp(reduced_t1, t2)) in 
         true, red_term
-      else false, Tapp(reduct_t1, t2)
+      else false, t
     | _ -> false, t
   in
   if !eager then t1
   else snd (head_reduction t1)
 
 (** [lazy_reduce_expand t] performs head reduction and head unfolding in
-    lazy mode,ie. unfold only when it can change the shape of [t]. It is
+    lazy mode,ie. unfolds only when it can change the shape of [t]. It is
     used when checking its shape. It returns a type equivalent to [t] but
     expanded and reduced, with a bool indicating if it has been modified *)
 let lazy_reduce_expand t1 =
@@ -166,8 +144,7 @@ let lazy_reduce_expand t1 =
     | Tvar(cvar) -> (
       match cvar.def with 
       | None -> false, ctyp
-      | Some def ->
-        true, snd (head_reduce_expand def.typ)
+      | Some def -> true, snd (head_reduce_expand def.typ)
     )
     | Tapp(Tbind(Tlam, alpha, _, ct1), ct2) ->
       let _, expand_ctyp = head_reduce_expand (subst_typ alpha ct2 ct1) in 
@@ -184,10 +161,10 @@ let lazy_reduce_expand t1 =
 
 (** [norm t1] normalize t1 according to the mode *)
 let norm t1 = 
-  if !eager then
-    let expand_t1, _  = eager_expansion t1 in 
-    full_normal expand_t1
-  else head_norm t1
+  if !eager then 
+    full_normal (eager_expansion t1)
+  else
+    head_norm t1
 
 
 (* ______________________________ Equalities ______________________________ *)
@@ -222,36 +199,35 @@ let rec eq_cvar v1 v2 =
   else (
     match v1.def, v2.def with 
     | None, None -> Some(Tvar v1, Tvar v2) 
-    | Some(def1), None -> diff_typ def1.typ (Tvar v2) 
-    | None, Some(def2) -> diff_typ (Tvar v1) def2.typ
-    | Some(def1), Some(def2) -> diff_typ def1.typ def2.typ
+    | Some(def1), _ -> diff_typ def1.typ (Tvar v2) 
+    | _, Some(def2) -> diff_typ (Tvar v1) def2.typ
   )
 
-and recurse_if_equal h1 h2 q1 q2 =
+and recurse_if_equal h1 h2 next1 next2 =
   match diff_typ h1 h2 with
-  | None -> diff_typ q1 q2
+  | None -> diff_typ next1 next2
   | Some(_) as l -> l
 
 and iter_diff_typ t1 t2 l1 l2 =
   match l1, l2 with
   | [], [] -> None 
-  | t1 :: q1, t2 :: q2 ->
-    (match diff_typ t1 t2 with
-      | None -> iter_diff_typ t1 t2 q1 q2
+  | h1 :: q1, h2 :: q2 ->
+    (match diff_typ h1 h2 with
+      | None -> iter_diff_typ h1 h2 q1 q2
       | Some _ as s -> s)
   | _ -> Some(t1, t2)
 
-and record_diff_typ typ1 typ2 l1 l2 =
+and record_diff_typ rcd1 rcd2 l1 l2 =
   match l1, l2 with 
   | [], [] -> None 
   | (l1, t1) :: q1, (l2, t2) :: q2 -> 
     if l1 <> l2 then Some(t1, t2)
     else (
       match diff_typ t1 t2 with 
-      | None -> record_diff_typ typ1 typ2 q1 q2
+      | None -> record_diff_typ rcd1 rcd2 q1 q2
       | Some _ as s -> s
     )
-  | _ -> Some(typ1, typ2)
+  | _ -> Some(rcd1, rcd2)
 
 (* In lazy mode, we start by head reducing. Then, if types does not
    structurally coincides:
