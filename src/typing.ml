@@ -1,6 +1,3 @@
-(* Once you are done writing the code, remove this directive,
-   whose purpose is to disable several warnings. *)
-(* [@@@warning "-27-32-33-37-39-60"] *)
 open Util
 open List
 open Syntax
@@ -576,7 +573,7 @@ and type_pack env packed_styp exp ctyp_as =
       ))
 
 
-(** Find annotation either in the pattern or in the expression *)
+(** Find annotation either in the pattern or in the expression, implementing X3 *)
 and find_annotation env pat exp =
   match pat.obj with
   | Pvar(evar) -> (
@@ -631,10 +628,10 @@ and type_apply env t_fun arg_list =
       )
   | _, [] -> t_fun
 
-  | _, Exp(arg1) :: q -> raise (
+  | _, Exp(arg1) :: _ -> raise (
     Typing(Some (arg1.loc), Expected(t_fun, Matching(Sarr)))
   )
-  | _, Typ(styp_loc) :: q -> raise (
+  | _, Typ(styp_loc) :: _ -> raise (
     Typing(Some (styp_loc.loc), Expected(t_fun, Matching(Sall)))
   )
 
@@ -649,8 +646,7 @@ and type_fun env typ_or_exp = function
   )
   | (Typ(svar,kind)) :: q ->
     let nenv, id_svar = fresh_id_for env svar in 
-    let cvar = make_cvar svar id_svar None in 
-    let nenv = add_svar env svar cvar in 
+    let cvar = make_cvar svar id_svar None in
     let nenv = add_cvar nenv cvar kind in
     Tbind(Tall, cvar, kind, type_fun nenv typ_or_exp q)
   | Exp(pat) :: q -> (
@@ -666,6 +662,7 @@ and type_fun env typ_or_exp = function
     | _ -> raise (complex_pattern pat)
   )
 
+
 let type_decl env (d :decl) : env * typed_decl = 
   match d.obj with
   | Dtyp(svar, toe) -> (
@@ -674,7 +671,8 @@ let type_decl env (d :decl) : env * typed_decl =
       let nenv, id = fresh_id_for env svar in
       (* This "try ... with" is only used in order to pass the
       fail_unbound_tvar_T3.fw by removing "In type: a".
-      It is purely artificial. *)
+      It is purely artificial since I chose to indicate the type
+      in which the error occurs for type definitions too *)
       let kind, ctyp = 
         try type_typ env styp_loc
         with 

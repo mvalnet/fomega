@@ -1,6 +1,6 @@
 (* Once you are done writing the code, remove this directive,
    whose purpose is to disable several warnings. *)
-[@@@warning "-27-32-33-37-39-60"]
+(* [@@@warning "-27-32-33-37-39-60"] *)
 
 open Util
 open Syntax
@@ -62,9 +62,6 @@ let _lazy =
   spec_add "--lazy" (Arg.Clear eager)
     "Lazy definition expansion and reduction to head normal forms"
 
-let struct_eq_cvar c1 c2 =
-  c1.name = c2.name && c1.id = c2.id
-
 
 (* __________________ Reduction and unfolding: eager mode __________________ *)
 
@@ -118,7 +115,7 @@ let rec eager_expansion ctyp : ctyp * bool =
 let rec full_normal t1 = 
   match t1 with 
   | Tvar(_) | Tprim(_) -> t1
-  | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
+  | Tapp(Tbind(Tlam, alpha, _, ct1), ct2) ->
     full_normal (subst_typ alpha ct2 ct1)
   | Tarr(ct1, ct2) ->
     Tarr(full_normal ct1, full_normal ct2)  
@@ -142,7 +139,7 @@ let rec full_normal t1 =
 let head_norm t1 = 
   let rec head_reduction t =
     match t with
-    | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
+    | Tapp(Tbind(Tlam, alpha, _, ct1), ct2) ->
       let _, reduct_t1 = head_reduction (subst_typ alpha ct2 ct1) in
       true, reduct_t1
     | Tapp(t1, t2) ->
@@ -172,8 +169,8 @@ let lazy_reduce_expand t1 =
       | Some def ->
         true, snd (head_reduce_expand def.typ)
     )
-    | Tapp(Tbind(Tlam, alpha, kind, ct1), ct2) ->
-      let b, expand_ctyp = head_reduce_expand (subst_typ alpha ct2 ct1) in 
+    | Tapp(Tbind(Tlam, alpha, _, ct1), ct2) ->
+      let _, expand_ctyp = head_reduce_expand (subst_typ alpha ct2 ct1) in 
       true, expand_ctyp
     | Tapp(t1, t2) -> 
       let b, expand_t1 = head_reduce_expand t1 in 
@@ -215,6 +212,9 @@ let eq_prim p1 p2 =
   | Tint, Tint | Tbool, Tbool
   | Tstring, Tstring | Tunit, Tunit -> true
   | _ -> false
+
+let struct_eq_cvar c1 c2 =
+  c1.name = c2.name && c1.id = c2.id
 
 (** Variable equality, unfolding only when necessary *)
 let rec eq_cvar v1 v2 =
