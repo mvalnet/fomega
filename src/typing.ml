@@ -351,7 +351,7 @@ let rec wf_ctyp env t : ctyp =
     (try 
       Tapp(wf_ctyp env t1, wf_ctyp env t2)
     with Escape cvar ->
-      let typ1_expand, b = eager_expansion t1 in 
+      let b, typ1_expand = lazy_reduce_expand t1 in 
       if b then wf_ctyp env (head_norm (Tapp(typ1_expand, t2)))
       else raise (Escape cvar)
     )
@@ -517,7 +517,10 @@ let rec type_exp env exp : ctyp =
           (match diff_typ (norm t_exp1) (norm ctyp_annot) with
           | None -> env
           | Some (sub_t_exp1, sub_ctyp_annot) -> raise (
-            make_showdiff_error exp1.loc t_exp1 ctyp_annot sub_t_exp1 sub_ctyp_annot
+            make_showdiff_error
+            exp1.loc 
+            t_exp1 ctyp_annot 
+            sub_t_exp1 sub_ctyp_annot
             )
           )
       in
@@ -544,7 +547,9 @@ let rec type_exp env exp : ctyp =
       (try 
         norm(wf_ctyp env ctyp2)
       with 
-        | Escape cvar -> raise (Typing(Some exp.loc, Escaping(ctyp2,cvar)))
+        | Escape cvar -> raise (
+          Typing(Some exp.loc, Escaping(ctyp2,cvar))
+        )
       )
     | _ -> raise (
       Typing(
@@ -572,7 +577,10 @@ and typ_pack env tau' exp ctyp_as =
     | None -> ctyp_as
     | Some(subt_expr, subt_expected) ->
       raise (
-        make_showdiff_error exp.loc ctyp expected_ctyp subt_expr subt_expected
+        make_showdiff_error
+        exp.loc
+        ctyp expected_ctyp
+        subt_expr subt_expected
       )
     )
     
@@ -607,7 +615,8 @@ and find_binded_type env pat exp =
  | _ -> raise (complex_pattern pat)
 
 and apply_arg env t_expr arg_list =
-  match t_expr, arg_list with
+  let _, expand_t_expr = lazy_reduce_expand t_expr in
+  match expand_t_expr, arg_list with
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
     let nenv, arg_ctyp = styp_to_ctyp env styp_loc in
     (* check kind compatibility *)
@@ -622,31 +631,6 @@ and apply_arg env t_expr arg_list =
         )
       )
   | _, [] -> t_expr
-  | Tvar(cvar), Exp(arg1) :: q -> (
-    match cvar.def with 
-    | Some def -> apply_arg env (head_norm def.typ) arg_list
-    | None -> raise (
-      Typing(Some (arg1.loc), Expected(t_expr, Matching(Sarr)))
-    )
-  )
-  | Tvar(cvar), Typ(styp_loc) :: q -> (
-    match cvar.def with 
-    | Some def -> apply_arg env (head_norm def.typ) arg_list
-    | None -> raise (
-      Typing(Some (styp_loc.loc), Expected(t_expr, Matching(Sall)))
-    )
-  )
-  | Tapp(ctyp1, ctyp2), Typ(styp_loc) :: q  -> 
-    let ctyp1_expand, b = eager_expansion ctyp1 in
-    if b then apply_arg env (head_norm (Tapp(ctyp1_expand, ctyp2))) arg_list 
-    else raise (
-      Typing(Some (styp_loc.loc), Expected(t_expr, Matching(Sall))))
-  
-  | Tapp(ctyp1, ctyp2), Exp(arg1) :: q  -> 
-    let ctyp1_expand, b = eager_expansion ctyp1 in
-    if b then apply_arg env (head_norm (Tapp(ctyp1_expand, ctyp2))) arg_list 
-    else raise (
-      Typing(Some (arg1.loc), Expected(t_expr, Matching(Sall))))
 
   | _, Exp(arg1) :: q -> raise (
     Typing(Some (arg1.loc), Expected(t_expr, Matching(Sarr)))
@@ -733,11 +717,15 @@ let type_decl env (d :decl) : env * typed_decl =
           (match diff_typ (norm ctyp_exp) (norm ctyp_annot) with
           | None -> nenv, ctyp_annot
           | Some (sub_ctyp_exp, sub_ctyp_annot) -> raise (
-            make_showdiff_error exp.loc ctyp_exp ctyp_annot sub_ctyp_exp sub_ctyp_annot
+            make_showdiff_error
+              exp.loc
+              ctyp_exp ctyp_annot
+              sub_ctyp_exp sub_ctyp_annot
             )
           )
       in
-      (add_evar nenv binded_var ctyp_exp), Glet(binded_var, minimize_typ env ctyp)
+      (add_evar nenv binded_var ctyp_exp),
+      Glet(binded_var, minimize_typ env ctyp)
         
   | Dopen(alpha, evar, exp) ->
     let ctyp = type_exp env exp in 
@@ -749,7 +737,8 @@ let type_decl env (d :decl) : env * typed_decl =
       let unpack_ctyp_body = subst_typ beta (Tvar(cvar)) ctyp_body in
       let nenv = add_evar nenv evar unpack_ctyp_body in 
       let nenv = add_svar nenv alpha cvar in 
-      (add_cvar nenv cvar kind), Gopen(cvar, evar, (minimize_typ env (norm unpack_ctyp_body)))
+      (add_cvar nenv cvar kind),
+      Gopen(cvar, evar, (minimize_typ env (norm unpack_ctyp_body)))
     | _ -> raise (
       Typing(
         Some d.loc,

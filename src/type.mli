@@ -25,10 +25,12 @@ val eager : bool ref
    option defaults to [false]. It can be changed using the `--eager` command
    line option.  Until lazy evaluation is implemented, this option may be
    ignored, defaulting to eager computation.  *)
-  
-val lazy_reduce_expand : ctyp -> bool * ctyp
 
-val eager_expansion : ctyp -> ctyp * bool
+val lazy_reduce_expand : ctyp -> bool * ctyp
+(** [lazy_reduce_expand t] performs head reduction and head unfolding in
+    lazy mode,ie. unfold only when it can change the shape of [t]. It is
+    used when checking its shape. It returns the reduced and expanded term
+    and a bool indicating if it has been modified *)
 
 val head_norm : ctyp -> ctyp
 (** [head_norm t] returns a type equivalent to [t] but in head normal form. *)
