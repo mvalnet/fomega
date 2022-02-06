@@ -476,8 +476,10 @@ let rec type_exp env exp : ctyp =
     Tprod(
       List.map (type_exp env) exp_list
     )
-  | Eproj(exp, n) -> (
-    match type_exp env exp with
+  | Eproj(exp, n) -> 
+    let ctyp = type_exp env exp in 
+    let _, expand_ctyp = lazy_reduce_expand ctyp in 
+    ( match norm expand_ctyp with
       | Tprod(typ_list) -> List.nth typ_list (n-1)
       | ctyp -> raise (
         Typing(
@@ -491,7 +493,9 @@ let rec type_exp env exp : ctyp =
       map_snd (type_exp env) labexp_list
     )
   | Elab(exp, lab) -> 
-  ( match type_exp env exp with
+    let ctyp = type_exp env exp in 
+    let _, expand_ctyp = lazy_reduce_expand ctyp in 
+  ( match norm expand_ctyp with
     | Trcd(labexp_list) as ctyp ->  (
         try
           snd 
@@ -555,16 +559,19 @@ let rec type_exp env exp : ctyp =
   | Epack(packed_styp, exp, styp_as) ->
     let env, ctyp_as = styp_to_ctyp env styp_as in
     let env, packed_ctyp = styp_to_ctyp env packed_styp in
-    norm(typ_pack env packed_ctyp exp ctyp_as )
+    let _, expand_ctyp_as = lazy_reduce_expand ctyp_as in
+    norm(typ_pack env packed_ctyp exp expand_ctyp_as )
   | Eopen(alpha, x, exp1, exp2) ->
     let exi_ctyp1 = type_exp env exp1 in 
-    (match exi_ctyp1 with
+    let _, expand_exi_ctyp1 = lazy_reduce_expand exi_ctyp1 in
+    (match expand_exi_ctyp1 with
     | Tbind(Texi, beta, kind, ctyp1) ->
       let nenv, id = fresh_id_for env alpha in 
       let cvar = make_cvar alpha id None in
       let unpack_ctyp1 = rename beta (Tvar(cvar)) ctyp1 in
       let nenv = add_evar nenv x unpack_ctyp1 in
       let ctyp2 = type_exp nenv exp2 in
+      (*let _, expand_ctyp2 = lazy_reduce_expand ctyp2 in*)
       (try 
         norm(wf_ctyp env ctyp2)
       with 
@@ -718,7 +725,7 @@ let type_decl env (d :decl) : env * typed_decl =
     match toe with
     | Exp(styp_loc) -> 
       let nenv, id = fresh_id_for env svar in
-      Format.printf "svar: %s%n \n" svar id;
+      (* Format.printf "svar: %s%n \n" svar id; *)
       (*let _, ctyp = styp_to_ctyp nenv styp_loc in  *)
       let kind, ctyp = type_typ nenv styp_loc in
       let ctyp = norm ctyp in
@@ -765,13 +772,17 @@ let type_decl env (d :decl) : env * typed_decl =
       in
       (add_evar nenv binded_var ctyp_exp), Glet(binded_var, minimize_typ env ctyp)
         
-  | Dopen(svar, evar, exp) ->
+  | Dopen(alpha, evar, exp) ->
     let ctyp = type_exp env exp in 
-    let nenv, id = fresh_id_for env svar in
-    let cvar = make_cvar svar id None in 
-    match ctyp with 
-    | Tbind(Texi,_,kind, _) -> 
-      (add_cvar nenv cvar kind), Gopen(cvar, evar, norm ctyp)
+    let _, expand_ctyp = lazy_reduce_expand ctyp in
+    match expand_ctyp with 
+    | Tbind(Texi, beta, kind, ctyp_body) -> 
+      let nenv, id = fresh_id_for env alpha in
+      let cvar = make_cvar alpha id None in
+      let unpack_ctyp_body = rename beta (Tvar(cvar)) ctyp_body in
+      let nenv = add_evar nenv evar unpack_ctyp_body in 
+      let nenv = add_svar nenv alpha cvar in 
+      (add_cvar nenv cvar kind), Gopen(cvar, evar, (minimize_typ env (norm unpack_ctyp_body)))
     | _ -> raise (
       Typing(
         Some d.loc,

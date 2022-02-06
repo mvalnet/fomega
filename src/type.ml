@@ -187,6 +187,25 @@ let head_norm t1 =
   if !eager then t1
   else snd (head_reduction t1)
 
+let lazy_reduce_expand ctyp =
+  let rec head_reduce_expand ctyp = 
+    match ctyp with 
+    | Tvar(cvar) -> (
+      match cvar.def with 
+      | None -> false, ctyp
+      | Some def -> 
+        true, snd (head_reduce_expand def.typ)
+    )
+    | Tapp(t1, t2) -> 
+      let b, expand_t1 = head_reduce_expand t1 in 
+      if b then 
+        true, snd (head_reduce_expand (head_norm (Tapp(expand_t1,t2))))
+      else false, ctyp
+    | _ -> false, ctyp
+  in
+  if !eager then false, ctyp 
+  else head_reduce_expand ctyp
+
 let norm t1 = 
   if !eager then
     let expand_t1, _  = eager_expansion t1 in 
@@ -248,12 +267,12 @@ and diff_typ t1 t2 =
   | Tvar(v1), _ -> (
       match v1.def with
       | Some def -> diff_typ def.typ t2
-      | None -> Format.printf "fail1" ;Some(t1,t2)
+      | None -> (* Format.printf "fail1" ; *)Some(t1,t2)
   )
   | _, Tvar(v2) -> (
       match v2.def with
       | Some def -> diff_typ t1 def.typ
-      | None -> Format.printf "fail2: undefined %s%n" v2.name v2.id ; Some(t1,t2)
+      | None ->(*  Format.printf "fail2: undefined %s%n" v2.name v2.id ; *) Some(t1,t2)
   )  
   | Tprim(p1), Tprim(p2) -> 
     if eq_prim p1 p2 then None
@@ -293,15 +312,15 @@ and diff_typ t1 t2 =
   | Tapp(typ1, typ2), _ ->
     let typ1_expand, b = eager_expansion typ1 in 
     if b then diff_typ (Tapp(typ1_expand, typ2)) t2
-    else (Format.printf "fail3" ; Some(t1, t2)
+    else ((* Format.printf "fail3" ; *) Some(t1, t2)
 )
   | _, Tapp(typ1, typ2) ->
     let typ1_expand, b = eager_expansion typ1 in 
     
     if b then( diff_typ t1 (Tapp(typ1_expand, typ2)))
-    else (Format.printf "fail4" ; Some(t1, t2))
+    else Some(t1, t2)
 
-  | _ ->  Format.printf "fail5" ;
+  | _ -> 
     
    Some(t1, t2)
 
