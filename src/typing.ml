@@ -74,12 +74,34 @@ let make_loc obj loc =
 
 let complex_pattern pat = Typing(Some pat.loc, NotImplemented "Complex Pattern")
 
-let f_omega loc = Typing(Some loc, NotImplemented "F_Omega")
+let escaping exp ctyp cvar = Typing(Some exp.loc, Escaping(ctyp, cvar))
+let non_exist exp ctyp = 
+  Typing(Some exp.loc,Expected(ctyp, Matching Sexi))
+let non_arrow arg t_fun =
+  Typing(Some (arg.loc), Expected(t_fun, Matching Sarr))
+let non_all styp_loc t_fun =
+  Typing(Some (styp_loc.loc), Expected(t_fun, Matching Sall))
+let non_size_n_tuple exp ctyp n = 
+  Typing(Some exp.loc,Expected(ctyp, Matching(Sprod (Some n))))
+let non_labeled_record exp ctyp lab =
+  Typing(Some exp.loc,Expected(ctyp, Matching(Srcd (Some lab))))
 
-let not_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
+let non_arrow_kind t kind = 
+  Typing (None,Kinding(t, kind, Matching(Sarr)))
+let non_equal_kind styp_loc kind expected_kind = 
+  Typing(
+    Some styp_loc.loc,
+    Kinding(styp_loc.obj,kind,Nonequal(expected_kind))
+  )
+let unloc_non_equal_kind styp kind expected_kind =
+  Typing(None,Kinding(styp, kind, Nonequal(expected_kind)))
+let non_ktyp styp kind  = (Typing(None, Kinding(styp, kind, Nonequal (Ktyp))))
+
 
 let make_showdiff_error loc cur exp sub_cur sub_exp =
   Typing(Some loc, Expected(cur, Showdiff(exp, sub_cur, sub_exp)))
+
+let missing_annotation a_loc evar = (Typing(Some(a_loc.loc), Annotation(evar)))
 
 (* _____________________ Fresh_id_for implementations _____________________ *)
 
@@ -296,27 +318,17 @@ let rec type_typ env (t : styp) : kind * ctyp =
     let kind2, ctyp2 = type_typ env styp2 in
     (match kind1, kind2 with 
     | Ktyp, Ktyp -> Ktyp, Tarr(ctyp1, ctyp2)
-    | Karr(_), _ -> raise (not_ktyp styp1 kind1)
-    | _, Karr(_) -> raise (not_ktyp styp2 kind2))
+    | Karr(_), _ -> raise (non_ktyp styp1 kind1)
+    | _, Karr(_) -> raise (non_ktyp styp2 kind2))
   | Tapp(styp1, styp2) -> 
     let kind1, ctyp1 = type_typ env styp1 in
     let kind2, ctyp2 = type_typ env styp2 in
     (match kind1 with
-    | Ktyp -> raise (
-      Typing (
-        None,
-        Kinding(t, kind1, Matching(Sarr))
-      )
-     )
+    | Ktyp -> raise (non_arrow_kind t kind1)
     | Karr(k_arg, k_ret) ->
       if eq_kind k_arg kind2 then
         k_ret, Tapp(ctyp1, ctyp2)
-      else (raise (
-        Typing(
-          None,
-          Kinding(t, k_arg, Nonequal(kind2))
-        )
-      ))
+      else (raise (unloc_non_equal_kind t k_arg kind2))
     )
   | Tbind(binder, svar, kind, styp) ->
     let nenv, id = fresh_id_for env svar in
@@ -330,7 +342,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
       | binder -> (
         match kind_body with
         | Ktyp -> Ktyp, Tbind(binder, cvar, kind, cbody)
-        | _ -> raise (not_ktyp styp kind_body)
+        | _ -> raise (non_ktyp styp kind_body)
       )
     )
   | Tprod(styp_list) -> 
@@ -339,7 +351,7 @@ let rec type_typ env (t : styp) : kind * ctyp =
         (fun styp -> 
           match type_typ env styp with
           | Ktyp, ctyp -> ctyp 
-          | kind, _ -> raise (not_ktyp styp kind)
+          | kind, _ -> raise (non_ktyp styp kind)
         )
         styp_list
     in 
@@ -432,13 +444,8 @@ let rec type_exp env exp : ctyp =
     let _, expand_ctyp = lazy_reduce_expand ctyp in 
     ( match norm expand_ctyp with
       | Tprod(typ_list) -> List.nth typ_list (n-1)
-      | ctyp -> raise (
-        Typing(
-          Some exp.loc,
-          Expected(ctyp,Matching(Sprod (Some n)))
-        )
-      )
-  )
+      | ctyp -> raise (non_size_n_tuple exp ctyp n)
+    )
 
   | Ercd(labexp_list) ->
     Trcd(map_snd (type_exp env) labexp_list)
@@ -446,7 +453,7 @@ let rec type_exp env exp : ctyp =
   | Elab(exp, lab) -> 
     let ctyp = type_exp env exp in 
     let _, expand_ctyp = lazy_reduce_expand ctyp in 
-  ( match norm expand_ctyp with
+   (match norm expand_ctyp with
     | Trcd(labexp_list) as ctyp ->  (
         try
           snd 
@@ -455,20 +462,10 @@ let rec type_exp env exp : ctyp =
               labexp_list
             )
         with 
-          | Not_found -> raise (
-            Typing(
-              Some exp.loc,
-              Expected(ctyp, Matching(Srcd (Some lab) ))
-           )
-          )
+          | Not_found -> raise (non_labeled_record exp ctyp lab)
     )
-    | ctyp -> raise (
-      Typing(
-        Some exp.loc,
-        Expected(ctyp, Matching(Srcd (Some lab) ))
-      )
-    )
-  )
+    | ctyp -> raise (non_labeled_record exp ctyp lab)
+   )
 
   | Efun(binding_list, exp) ->
     type_fun env (Exp exp) binding_list
@@ -529,16 +526,10 @@ let rec type_exp env exp : ctyp =
       (try 
         norm(wf_ctyp env ctyp2)
       with 
-        | Escape cvar -> raise (
-          Typing(Some exp.loc, Escaping(ctyp2,cvar))
-        )
+        | Escape cvar -> raise (escaping exp ctyp2 cvar)
       )
-    | _ -> raise (
-      Typing(
-        Some exp.loc,
-         Expected(exi_ctyp1, Matching(Sexi))
-      )
-    ))
+    | _ -> raise (non_exist exp exi_ctyp1)
+    )
 
 (* Help for Epack typing  *)
 and type_pack env packed_styp exp ctyp_as =
@@ -548,14 +539,7 @@ and type_pack env packed_styp exp ctyp_as =
   | Tbind(Texi, alpha, kind, tau)  -> 
     let expected_ctyp = subst_typ alpha packed_ctyp tau in
     if not (eq_kind packed_kind kind) then 
-      raise (Typing(
-          Some packed_styp.loc,
-          Kinding(
-            packed_styp.obj,
-            packed_kind,
-            Nonequal(kind)
-          )
-        ))
+      raise (non_equal_kind packed_styp packed_kind kind)
     else 
       (match diff_typ (norm ctyp) (norm expected_ctyp) with
       | None -> ctyp_as
@@ -567,10 +551,7 @@ and type_pack env packed_styp exp ctyp_as =
           subt_expr subt_expected
         )
       )
-    | _ -> raise (Typing(
-        Some exp.loc,
-        Expected(ctyp_as, Matching(Sexi))
-      ))
+    | _ -> raise (non_exist exp ctyp_as)
 
 
 (** Find annotation either in the pattern or in the expression, implementing X3 *)
@@ -585,9 +566,9 @@ and find_annotation env pat exp =
         (* we need types information from the argument to
           get the annotation representation *)
         add_evar env evar ctyp, norm ctyp
-      | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+      | _ -> raise (missing_annotation pat evar)
       )
-    | _ -> raise (Typing(Some(pat.loc), Annotation(evar)))
+    | _ -> raise (missing_annotation pat evar)
     )
   | Ptyp(x, styp_loc) -> (
       match x.obj with 
@@ -606,15 +587,7 @@ and type_apply env t_fun arg_list =
   | Tbind(Tall, cvar, kind, ctyp), Typ(styp_loc) :: arg_list -> 
     let arg_kind, arg_ctyp = type_typ env styp_loc in
     if not (eq_kind arg_kind kind) then 
-      raise (Typing(
-        Some styp_loc.loc,
-        Kinding(
-          styp_loc.obj,
-          arg_kind,
-          Nonequal(kind)
-        )
-      )
-    )
+      raise (non_equal_kind styp_loc arg_kind kind)
     else
       let ctyp = subst_typ cvar arg_ctyp ctyp in
       type_apply env ctyp arg_list 
@@ -628,12 +601,8 @@ and type_apply env t_fun arg_list =
       )
   | _, [] -> t_fun
 
-  | _, Exp(arg1) :: _ -> raise (
-    Typing(Some (arg1.loc), Expected(t_fun, Matching(Sarr)))
-  )
-  | _, Typ(styp_loc) :: _ -> raise (
-    Typing(Some (styp_loc.loc), Expected(t_fun, Matching(Sall)))
-  )
+  | _, Exp(arg1) :: _ -> raise (non_arrow arg1 t_fun)
+  | _, Typ(styp_loc) :: _ -> raise (non_all styp_loc t_fun)
 
 (** [type_fun env typ_or_exp binding] crosses [binding], checking expression
  variables are annotated and deducing from the build environment the type of
@@ -658,7 +627,7 @@ and type_fun env typ_or_exp = function
           let nenv = add_evar env evar ctyp in
           Tarr(ctyp, type_fun nenv typ_or_exp q)
         | _ -> raise (complex_pattern pat))
-    | Pvar(evar) ->  raise (Typing(Some(pat.loc), Annotation(evar)))
+    | Pvar(evar) ->  raise (missing_annotation pat evar)
     | _ -> raise (complex_pattern pat)
   )
 
@@ -739,12 +708,7 @@ let type_decl env (d :decl) : env * typed_decl =
       let nenv = add_svar nenv alpha cvar in 
       (add_cvar nenv cvar kind),
       Gopen(cvar, evar, (minimize_typ env (norm unpack_ctyp_body)))
-    | _ -> raise (
-      Typing(
-        Some d.loc,
-         Expected(ctyp, Matching(Sexi))
-      )
-    )
+    | _ -> raise (non_exist d ctyp)
 
 let type_program env (p : program) : env * typed_decl list =
   List.fold_left_map type_decl env p
